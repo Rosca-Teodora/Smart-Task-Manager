@@ -48,7 +48,7 @@ class Task(models.Model):
     position = models.FloatField()
 
     board = models.ForeignKey(Board, on_delete=models.CASCADE) # FK needed to not take columns/ statuses from any project, ony from current board
-    status = models.ForeignKey(Column, on_delete=models.PROTECT) # error when deleting column with tasks inside 
+    status = models.ForeignKey(Column, on_delete=models.PROTECT,) # error when deleting column with tasks inside 
     main_task = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="subtasks") # for subtask integration = adjacency list!!!
 
     def __str__(self):

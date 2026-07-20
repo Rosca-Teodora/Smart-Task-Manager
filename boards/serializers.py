@@ -3,10 +3,25 @@ from rest_framework import serializers
 from .models import Board, UserBoard, Column, Task, AssignedTask
 
 class TaskSerializer(serializers.ModelSerializer):
+    key = serializers.SerializerMethodField()
+    
     class Meta: 
         model = Task
         fields = '__all__'
-        depth = 2
+        read_only_fields = ["id", "number", "created_date", "last_edited_date"]
+    
+    def get_key(self, obj):
+        return f"{obj.board.key}-{obj.number}"
+    
+
+class ColumnSerializer(serializers.ModelSerializer):
+    tasks = TaskSerializer(many=True, read_only=True)
+    
+    class Meta: 
+        model = Column
+        fields = '__all__'
+        read_only_fields = ["id"]
+    
 
 class AssignedTaskSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,12 +32,6 @@ class UserBoardSerializer(serializers.ModelSerializer):
     class Meta: 
         model = UserBoard
         fields = '__all__'
-
-class ColumnSerializer(serializers.ModelSerializer):
-    class Meta: 
-        model = Column
-        fields = '__all__'
-        depth = 1
 
 class BoardSerializer(serializers.ModelSerializer):
     class Meta:
