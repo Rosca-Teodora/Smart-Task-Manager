@@ -20,7 +20,7 @@ class Column(models.Model): # things like: to do, done, bugs etc.
     key = models.CharField(max_length=5)
     position = models.IntegerField()
 
-    board = models.ForeignKey(Board, on_delete=KeyError, unique=True) # should not be able to delete boards if it has columns 
+    board = models.ForeignKey(Board, on_delete=models.PROTECT, unique=True) # should not be able to delete boards if it has columns 
 
 class Task(models.Model):
     description = models.CharField(max_length=600)
@@ -29,8 +29,8 @@ class Task(models.Model):
     number = models.IntegerField()
     position = models.FloatField()
 
-    board = models.ForeignKey(Board, on_delete=KeyError) # FK needed to not take columns/ statuses from any project, ony from current board
-    status = models.ForeignKey(Column, on_delete=KeyError) # error when deleting column with tasks inside 
+    board = models.ForeignKey(Board, on_delete=models.PROTECT) # FK needed to not take columns/ statuses from any project, ony from current board
+    status = models.ForeignKey(Column, on_delete=models.PROTECT) # error when deleting column with tasks inside 
     main_task = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="subtasks") # for subtask integration = adjacency list!!!
 
     def validate_main_task(self): # keep only one level which is task-> subtask (no task->subtask->subtask->......)
