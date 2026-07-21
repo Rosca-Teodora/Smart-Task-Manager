@@ -1,9 +1,10 @@
 from django.shortcuts import render
-from boards.serializers import BoardSerializer, TaskSerializer, AssignedTaskSerializer, UserBoardSerializer, ColumnSerializer
-from rest_framework import viewsets
+from django.contrib.auth import get_user_model
+from boards.serializers import BoardSerializer, TaskSerializer, AssignedTaskSerializer, UserBoardSerializer, ColumnSerializer, CreateUserSerializer
+from rest_framework import viewsets, generics
 from rest_framework.response import Response
-from . models import Board, Task, Column, UserBoard, AssignedTask
-
+from . models import Board, Task, Column, UserBoard, AssignedTask 
+from rest_framework.permissions import AllowAny
 
 class UserBoardViewSet(viewsets.ModelViewSet):
     serializer_class = UserBoardSerializer
@@ -24,3 +25,8 @@ class ColumnViewSet(viewsets.ModelViewSet):
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     queryset = Task.objects.all()
+
+class CreateUserView(generics.CreateAPIView):
+    serializer_class = CreateUserSerializer
+    queryset = get_user_model().objects.all()
+    permission_classes = [AllowAny]

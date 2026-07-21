@@ -1,6 +1,7 @@
 # lifesaver: https://www.django-rest-framework.org/api-guide/serializers/#modelserializer
 from rest_framework import serializers
 from .models import Board, UserBoard, Column, Task, AssignedTask
+from django.contrib.auth import get_user_model
 
 class TaskSerializer(serializers.ModelSerializer):
     key = serializers.SerializerMethodField()
@@ -37,3 +38,15 @@ class BoardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board 
         fields = '__all__'
+
+class CreateUserSerializer(serializers.ModelSerializer):
+    class Meta: 
+        model = get_user_model()
+        fields = ['username', 'password']
+        extra_kwargs = {'password': {'write_only': True}}
+    
+    def create(self, valid_data):
+        user = get_user_model()(username = valid_data['username'])
+        user.set_password(valid_data['password'])
+        user.save()
+        return user
