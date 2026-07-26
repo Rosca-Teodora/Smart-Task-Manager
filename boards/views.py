@@ -22,6 +22,10 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Board.objects.filter(userboard__user = self.request.user) # double underscore lookup "__" de la Board la UserBoard la user
+    
+    def perform_create(self, serializer):
+        board = serializer.save()
+        UserBoard.objects.create(board = board, user = self.request.user, role='owner')
 
 class ColumnViewSet(viewsets.ModelViewSet):
     serializer_class = ColumnSerializer
