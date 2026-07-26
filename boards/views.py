@@ -18,15 +18,24 @@ class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
     queryset = Board.objects.all()
 
+    def get_queryset(self):
+        return Board.objects.filter(userboard__user = self.request.user) # double underscore lookup "__" de la Board la UserBoard la user
+
 class ColumnViewSet(viewsets.ModelViewSet):
     serializer_class = ColumnSerializer
     queryset = Column.objects.all()
+    
+    def get_queryset(self):
+        return Column.objects.filter(board__userboard__user = self.request.user) # column -> board -> userboard -> user = current request's user
 
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     queryset = Task.objects.all()
+    
+    def get_queryset(self):
+        return Task.objects.filter(board__userboard__user = self.request.user) 
 
-class CreateUserView(generics.CreateAPIView):
+class CreateUserView(generics.CreateAPIView): # register view
     serializer_class = CreateUserSerializer
     queryset = get_user_model().objects.all()
     permission_classes = [AllowAny]
