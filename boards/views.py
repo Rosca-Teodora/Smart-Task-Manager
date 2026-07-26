@@ -5,6 +5,7 @@ from rest_framework import viewsets, generics
 from rest_framework.response import Response
 from . models import Board, Task, Column, UserBoard, AssignedTask 
 from rest_framework.permissions import AllowAny
+from .permissions import BoardMemberPermission, TaskAndColumnBoardMemberPermission
 
 class UserBoardViewSet(viewsets.ModelViewSet):
     serializer_class = UserBoardSerializer
@@ -17,6 +18,7 @@ class AssignedTaskViewSet(viewsets.ModelViewSet):
 class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
     queryset = Board.objects.all()
+    permission_classes = [BoardMemberPermission]
 
     def get_queryset(self):
         return Board.objects.filter(userboard__user = self.request.user) # double underscore lookup "__" de la Board la UserBoard la user
@@ -24,6 +26,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 class ColumnViewSet(viewsets.ModelViewSet):
     serializer_class = ColumnSerializer
     queryset = Column.objects.all()
+    permission_classes = [TaskAndColumnBoardMemberPermission]
     
     def get_queryset(self):
         return Column.objects.filter(board__userboard__user = self.request.user) # column -> board -> userboard -> user = current request's user
@@ -31,6 +34,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     queryset = Task.objects.all()
+    permission_classes = [TaskAndColumnBoardMemberPermission]
     
     def get_queryset(self):
         return Task.objects.filter(board__userboard__user = self.request.user) 
