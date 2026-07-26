@@ -34,7 +34,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'boards'
+    'boards',
+    'coarsheaders',
 ]
 
 REST_FRAMEWORK = {
@@ -54,6 +55,12 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000", # permit browser requests (frontend's on that port)
 ]
 
 ROOT_URLCONF = 'config.urls'
