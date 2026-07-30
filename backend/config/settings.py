@@ -59,7 +59,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000", # permit browser requests (frontend's on that port)
+    "http://localhost:5173", # permit browser requests (frontend's on that port)
 ]
 
 ROOT_URLCONF = 'config.urls'
