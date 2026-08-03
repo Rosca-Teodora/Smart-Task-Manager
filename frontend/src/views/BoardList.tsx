@@ -1,6 +1,22 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getBoards, type Board } from "../Api";
+import { useAuth } from "../AuthContext";
+import { useNavigate } from "react-router-dom";
+
+function LogoutButton() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => { logout(); navigate("/login"); }}
+      className="text-sm text-gray-600 underline"
+    >
+      Log out
+    </button>
+  );
+}
+
 
 function BoardList() {
   const [boards, setBoards] = useState<Board[]>([]);
@@ -34,6 +50,7 @@ function BoardList() {
           </li>
         ))}
       </ul>
+      <LogoutButton></LogoutButton>
     </main>
   );
 }

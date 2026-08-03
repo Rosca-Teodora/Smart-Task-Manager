@@ -1,12 +1,37 @@
 const BASE_URL = "http://127.0.0.1:8000/api";
 
-function getToken(): string {
-  return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzg1NzU4NzgxLCJpYXQiOjE3ODU3NTg0ODEsImp0aSI6IjE4ZjBiZGJkMzI5MTRhM2JiNWMyMGFmOWU4NTkwYWQyIiwidXNlcl9pZCI6IjEifQ.kM78BbsofTPZqJkE2CoWNthnDff_A-Z_LEeoh0UYIzw"; // hardcoded for now
+function getToken(): string | null {
+  return localStorage.getItem("access");
+}
+
+export async function login(username: string, password: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/token/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    throw new Error("Invalid username or password");
+  }
+  const data = await res.json();
+  localStorage.setItem("access", data.access);
+  localStorage.setItem("refresh", data.refresh);
+}
+
+
+export function logout(): void {
+  localStorage.removeItem("access");
+  localStorage.removeItem("refresh");
+}
+
+export function isLoggedIn(): boolean {
+  return localStorage.getItem("access") !== null;
 }
 
 async function request(path: string) { // request helper to attach auth, check status and parse json 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) {
     throw new Error(`API returned ${res.status}`);
