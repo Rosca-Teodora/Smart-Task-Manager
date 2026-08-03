@@ -1,11 +1,14 @@
 from django.shortcuts import render
 from django.contrib.auth import get_user_model
-from boards.serializers import BoardSerializer, TaskSerializer, AssignedTaskSerializer, UserBoardSerializer, ColumnSerializer, CreateUserSerializer
+from boards.serializers import BoardSerializer, TaskSerializer, AssignedTaskSerializer, UserBoardSerializer, ColumnSerializer, CreateUserSerializer, BoardDetailSerializer
 from rest_framework import viewsets, generics
 from rest_framework.response import Response
 from . models import Board, Task, Column, UserBoard, AssignedTask 
 from rest_framework.permissions import AllowAny
 from .permissions import BoardMemberPermission, TaskAndColumnBoardMemberPermission
+from rest_framework.decorators import action
+from rest_framework import status
+from .ai import draft_ticket
 
 class UserBoardViewSet(viewsets.ModelViewSet):
     serializer_class = UserBoardSerializer
@@ -27,6 +30,12 @@ class BoardViewSet(viewsets.ModelViewSet):
         board = serializer.save()
         UserBoard.objects.create(board = board, user = self.request.user, role='owner')
 
+    def get_serializer_class(self): # return diff serializer based on actual request. if details are needed return the columns as well (seperate Detailed serializer) else return flat one
+        if self.action == "retrieve":
+            return BoardDetailSerializer
+        return BoardSerializer
+    
+
 class ColumnViewSet(viewsets.ModelViewSet):
     serializer_class = ColumnSerializer
     queryset = Column.objects.all()
@@ -42,6 +51,28 @@ class TaskViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         return Task.objects.filter(board__userboard__user = self.request.user) 
+
+    @action(detail=False, methods=["post"])
+    def draft(self, request):
+        user_input = request.data.get("input", "").strip()
+        if not user_input:
+            return Response(
+                {"error": "No input provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            result = draft_ticket(user_input)
+        except RuntimeError:
+            return Response(
+                {"error": "AI service unavailable"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except ValueError:
+            return Response(
+                {"error": "Could not draft a ticket from that input"},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        return Response(result)
 
 class CreateUserView(generics.CreateAPIView): # register view
     serializer_class = CreateUserSerializer

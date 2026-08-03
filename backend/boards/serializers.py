@@ -16,7 +16,7 @@ class TaskSerializer(serializers.ModelSerializer):
     
 
 class ColumnSerializer(serializers.ModelSerializer):
-    tasks = TaskSerializer(many=True, read_only=True)
+    tasks = TaskSerializer(many=True, read_only=True, source="task_set")
     
     class Meta: 
         model = Column
@@ -38,6 +38,13 @@ class BoardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board 
         fields = '__all__'
+
+class BoardDetailSerializer(serializers.ModelSerializer):
+    columns = ColumnSerializer(many=True, read_only=True, source="column_set")
+
+    class Meta:
+        model = Board
+        fields = ["id", "name", "key", "created_date", "columns"]
 
 class CreateUserSerializer(serializers.ModelSerializer):
     class Meta: 
