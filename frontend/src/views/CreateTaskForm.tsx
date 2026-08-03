@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { createTask, type Column } from "../Api";
+import { createTask, type Column, type Priority } from "../Api";
+import { PRIORITY_OPTIONS } from "../components/priority";
 
 type Props = {
     boardId: number;
@@ -12,6 +13,7 @@ function CreateTaskForm({ boardId, columns, onCreated, onCancel }: Props) {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [statusId, setStatusId] = useState<number | null>(columns[0]?.id ?? null);
+    const [priority, setPriority] = useState<Priority>("MED");
     const [error, setError] = useState<string | null>(null);
 
     async function handleSave() {
@@ -26,6 +28,7 @@ function CreateTaskForm({ boardId, columns, onCreated, onCancel }: Props) {
                 status: statusId,
                 title,
                 description,
+                priority,
                 position: 1.0,  // simple default; ordering can improve later
             });
             onCreated();  // tell the parent to refetch the board (and close)
@@ -35,43 +38,63 @@ function CreateTaskForm({ boardId, columns, onCreated, onCancel }: Props) {
     }
 
     return (
-        <div className="rounded border p-4 space-y-2">
-            <h3 className="font-semibold">New task</h3>
+        <div className="flex flex-col gap-2.5 rounded-panel border border-line bg-surface p-4">
+            <h3 className="text-label font-semibold tracking-[-0.01em] text-ink">New task</h3>
             <input
-                className="w-full rounded border p-2 font-medium"
+                className="input font-medium"
                 placeholder="Task title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
             />
             <textarea
-                className="w-full rounded border p-2 text-sm"
+                className="input resize-y leading-snug"
                 rows={3}
                 placeholder="Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
             />
-            <select
-                className="w-full rounded border p-2 text-sm"
-                value={statusId ?? ""}
-                onChange={(e) => setStatusId(Number(e.target.value))}
-            >
-                {columns.map((column) => (
-                    <option key={column.id} value={column.id}>
-                        {column.name}
-                    </option>
-                ))}
-            </select>
-            {error && <p className="text-red-600 text-sm">{error}</p>}
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
+                <label className="flex flex-col gap-1">
+                    <span className="text-meta font-medium text-ink-muted">Column</span>
+                    <select
+                        className="input"
+                        value={statusId ?? ""}
+                        onChange={(e) => setStatusId(Number(e.target.value))}
+                    >
+                        {columns.map((column) => (
+                            <option key={column.id} value={column.id}>
+                                {column.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                    <span className="text-meta font-medium text-ink-muted">Priority</span>
+                    <select
+                        className="input"
+                        value={priority}
+                        onChange={(e) => setPriority(e.target.value as Priority)}
+                    >
+                        {PRIORITY_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            </div>
+            {error && <p className="field-error">{error}</p>}
+            <div className="mt-0.5 flex gap-2">
                 <button
-                    className="rounded bg-green-600 text-white px-4 py-2 disabled:opacity-50"
+                    className="btn btn-md btn-primary"
                     onClick={handleSave}
                     disabled={!title.trim()}
                 >
                     Save task
                 </button>
                 <button
-                    className="rounded border px-4 py-2"
+                    className="btn btn-md btn-secondary"
                     onClick={onCancel}
                 >
                     Cancel

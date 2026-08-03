@@ -138,10 +138,12 @@ export async function createColumn(column: { board: number; name: string; positi
     if (!res.ok) throw new Error(`Could not create column: ${res.status}`);
 }
 
+export type Priority = "LOW" | "MED" | "HIGH";
+
 export type DraftResult = {
     title: string;
     description: string;
-    priority: string;
+    priority: Priority;
 }
 
 export type CreateTaskInput = {
@@ -150,6 +152,7 @@ export type CreateTaskInput = {
     title: string;
     description: string;
     position: number;
+    priority?: Priority;
 };
 
 export type Board = {
@@ -163,6 +166,7 @@ export type Task = {
     key: string;
     title: string;
     description: string;
+    priority: Priority;
 };
 
 export type Column = {
@@ -187,6 +191,7 @@ export type TaskDetail = {
     last_edited_date: string;
     status: number;
     board: number;
+    priority: Priority;
 };
 
 export function getBoards(): Promise<Board[]> {

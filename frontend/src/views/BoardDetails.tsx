@@ -12,6 +12,7 @@ import {
 } from "../Api";
 import DraftTask from "./DraftTask";
 import CreateTaskForm from "./CreateTaskForm";
+import PriorityTag from "../components/PriorityTag";
 
 
 function CreateColumnForm({ boardId, nextPosition, onCreated }: {
@@ -34,20 +35,20 @@ function CreateColumnForm({ boardId, nextPosition, onCreated }: {
     }
 
     return (
-        <div className="w-64 flex-shrink-0 rounded border-2 border-dashed p-3">
+        <div className="flex w-column shrink-0 flex-col gap-2 rounded-panel border border-dashed border-line-strong p-3">
         <input
-            className="w-full rounded border p-2 mb-2"
+            className="input"
             placeholder="New column name"
             value={name}
             onChange={(e) => setName(e.target.value)}
         />
-        {error && <p className="text-red-600 text-xs mb-2">{error}</p>}
+        {error && <p className="field-error">{error}</p>}
         <button
-            className="w-full rounded bg-gray-600 text-white p-2 disabled:opacity-50"
+            className="btn btn-md btn-secondary w-full"
             onClick={handleCreate}
             disabled={!name.trim()}
         >
-            + Add column
+            Add column
         </button>
         </div>
     );
@@ -85,24 +86,24 @@ function ColumnCard({ column, boardId, onChanged }: {
     }
 
     return (
-    <div className="w-64 flex-shrink-0 rounded bg-gray-100 p-3">
+    <section className="flex w-column shrink-0 flex-col rounded-panel border border-line bg-subtle">
       {editing ? (
-        <div className="mb-3 space-y-2">
+        <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
             <input
-                className="w-full rounded border p-2"
+                className="input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
             />
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
                 <button
-                className="rounded bg-green-600 text-white px-3 py-1 text-sm disabled:opacity-50"
+                className="btn btn-sm btn-primary"
                 onClick={handleRename}
                 disabled={!name.trim()}
                 >
                 Save
                 </button>
                 <button
-                className="rounded border px-3 py-1 text-sm"
+                className="btn btn-sm btn-secondary"
                 onClick={() => { setName(column.name); setEditing(false); }}
                 >
                 Cancel
@@ -110,28 +111,41 @@ function ColumnCard({ column, boardId, onChanged }: {
             </div>
             </div>
         ) : (
-            <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-semibold">{column.name}</h2>
-            <div className="flex gap-2 text-xs">
-                <button className="text-blue-600 hover:underline" onClick={() => setEditing(true)}>Edit</button>
-                <button className="text-red-600 hover:underline" onClick={handleDelete}>Delete</button>
+            <header className="flex items-center justify-between gap-2 px-3 pt-3 pb-2">
+            <div className="flex min-w-0 items-center gap-2">
+                <h2 className="truncate text-label font-semibold tracking-[-0.01em] text-ink">{column.name}</h2>
+                <span className="text-meta tabular-nums text-ink-faint">{column.tasks.length}</span>
             </div>
+            <div className="flex items-center gap-0.5">
+                <button className="btn btn-sm btn-ghost" onClick={() => setEditing(true)}>Edit</button>
+                <button className="btn btn-sm btn-danger" onClick={handleDelete}>Delete</button>
             </div>
+            </header>
         )}
-        {error && <p className="text-red-600 text-xs mb-2">{error}</p>}
-        <div className="space-y-2">
-            {column.tasks.map((task) => (
+        {error && <p className="field-error px-3 pb-2">{error}</p>}
+        <ul className="flex flex-col gap-2 px-3 pb-3">
+            {column.tasks.length === 0 ? (
+            <li className="flex min-h-24 items-center justify-center rounded-card border border-dashed border-line-strong text-meta text-ink-faint">
+                No tasks
+            </li>
+            ) : (
+            column.tasks.map((task) => (
+            <li key={task.id}>
             <Link
-                key={task.id}
                 to={`/boards/${boardId}/tasks/${task.id}`}
-                className="block rounded bg-white p-3 shadow-sm hover:shadow"
+                className="block rounded-card border border-line bg-surface px-3 py-2.5 transition duration-150 hover:border-line-strong hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-                <div className="text-xs text-gray-500">{task.key}</div>
-                <div className="font-medium">{task.title}</div>
+                <span className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-meta tracking-wide tabular-nums text-ink-faint">{task.key}</span>
+                    <PriorityTag priority={task.priority} />
+                </span>
+                <span className="mt-1 block text-body font-medium leading-snug text-ink">{task.title}</span>
             </Link>
-            ))}
-        </div>
-    </div>
+            </li>
+            ))
+            )}
+        </ul>
+    </section>
     );
 }
 
@@ -142,6 +156,7 @@ function BoardDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showAddTask, setShowAddTask] = useState(false);
+    const [showDraft, setShowDraft] = useState(false);
 
     const [editingBoard, setEditingBoard] = useState(false);
     const [boardName, setBoardName] = useState("");
@@ -200,67 +215,81 @@ function BoardDetailPage() {
         }
     }
 
-    if (loading) return <main className="p-8">Loading…</main>;
-    if (error) return <main className="p-8 text-red-600">Error: {error}</main>;
+    if (loading) return <main className="min-h-dvh px-8 py-6 text-body text-ink-muted">Loading…</main>;
+    if (error) return <main className="min-h-dvh px-8 py-6 text-body text-danger">{error}</main>;
     if (!board) return null;
 
     return (
-        <main className="p-8">
-        <Link to="/boards" className="text-blue-600 hover:underline">
-            ← Back to board list
+        <main className="min-h-dvh">
+        <header className="mx-auto max-w-[1400px] px-8 pt-6 pb-5">
+        <Link
+            to="/boards"
+            className="inline-flex items-center gap-1.5 rounded-control text-label text-ink-muted transition duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+            <span aria-hidden="true">←</span> Back to boards
         </Link>
-        <div className="mt-4">
+        <div className="mt-3">
         {editingBoard ? (
             <div className="flex items-center gap-2">
                 <input
-                    className="rounded border p-2"
+                    className="input max-w-xs"
                     value={boardName}
                     onChange={(e) => setBoardName(e.target.value)}
                 />
                 <input
-                    className="rounded border p-2 w-24"
+                    className="input w-24 font-mono tabular-nums"
                     value={boardKey}
                     onChange={(e) => setBoardKey(e.target.value)}
                 />
                 <button
-                    className="rounded bg-green-600 text-white px-4 py-2 disabled:opacity-50"
+                    className="btn btn-md btn-primary"
                     onClick={handleSaveBoard}
                     disabled={!boardName.trim() || !boardKey.trim()}
                 >
                     Save
                 </button>
                 <button
-                    className="rounded border px-4 py-2"
+                    className="btn btn-md btn-secondary"
                     onClick={() => setEditingBoard(false)}
                 >
                     Cancel
                 </button>
             </div>
         ) : (
-            <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold">{board.key} — {board.name}</h1>
-                <button
-                    className="rounded bg-green-600 text-white px-4 py-2"
-                    onClick={() => setShowAddTask(true)}
-                >
-                    + Add task
-                </button>
-                <button
-                    className="text-sm text-blue-600 underline"
-                    onClick={startEditBoard}
-                >
-                    Edit board
-                </button>
-                <button
-                    className="text-sm text-red-600 underline"
-                    onClick={handleDeleteBoard}
-                >
-                    Delete board
-                </button>
+            <div className="flex items-center justify-between gap-6">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="rounded-control bg-accent-soft px-1.5 py-0.5 font-mono text-meta font-medium tracking-wide tabular-nums text-accent">
+                        {board.key}
+                    </span>
+                    <h1 className="truncate text-title font-semibold tracking-[-0.02em] text-ink">{board.name}</h1>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                    <button className="btn btn-sm btn-ghost" onClick={startEditBoard}>
+                        Edit
+                    </button>
+                    <button className="btn btn-sm btn-danger" onClick={handleDeleteBoard}>
+                        Delete
+                    </button>
+                    <span aria-hidden="true" className="mx-2 h-5 w-px bg-line" />
+                    <button
+                        className="btn btn-md btn-secondary"
+                        aria-expanded={showDraft}
+                        onClick={() => { setShowDraft((open) => !open); setShowAddTask(false); }}
+                    >
+                        Draft with AI
+                    </button>
+                    <button
+                        className="btn btn-md btn-primary"
+                        aria-expanded={showAddTask}
+                        onClick={() => { setShowAddTask((open) => !open); setShowDraft(false); }}
+                    >
+                        + Add task
+                    </button>
+                </div>
             </div>
         )}
         </div>
-        {actionError && <p className="mt-2 text-red-600 text-sm">{actionError}</p>}
+        {actionError && <p className="field-error mt-2">{actionError}</p>}
 
         {showAddTask && (
             <div className="mt-4 max-w-md">
@@ -273,7 +302,19 @@ function BoardDetailPage() {
             </div>
         )}
 
-        <div className="mt-6 flex gap-4 overflow-x-auto">
+        {showDraft && (
+            <div className="mt-4 max-w-xl">
+            <DraftTask
+                boardId={board.id}
+                columns={board.columns}
+                onCreated={() => { setShowDraft(false); refetchBoard(); }}
+            />
+            </div>
+        )}
+        </header>
+
+        <div className="overflow-x-auto pb-8">
+        <div className="mx-auto flex min-w-max max-w-[1400px] items-start gap-4 px-8">
             {board.columns.map((column) => (
             <ColumnCard
                 key={column.id}
@@ -288,10 +329,7 @@ function BoardDetailPage() {
                     onCreated={refetchBoard}
             />
         </div>
-        <DraftTask
-            boardId={board.id}
-            columns={board.columns}
-            onCreated={() => {refetchBoard();}}/>
+        </div>
         </main>
     );
 }
