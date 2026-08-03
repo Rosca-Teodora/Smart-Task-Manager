@@ -10,6 +10,7 @@ class TaskSerializer(serializers.ModelSerializer):
         model = Task
         fields = '__all__'
         read_only_fields = ["id", "number", "created_date", "last_edited_date"]
+        validators = []
     
     def get_key(self, obj):
         return f"{obj.board.key}-{obj.number}"

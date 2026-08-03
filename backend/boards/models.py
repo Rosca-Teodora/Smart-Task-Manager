@@ -39,7 +39,7 @@ class Column(models.Model): # things like: to do, done, bugs etc.
         return f"{self.name}"
 
 class Task(models.Model):
-    title = models.CharField(max_length=30)
+    title = models.CharField(max_length=200)
     description = models.CharField(max_length=600)
     created_date = models.DateTimeField(auto_now_add=True)
     last_edited_date = models.DateTimeField(auto_now=True)

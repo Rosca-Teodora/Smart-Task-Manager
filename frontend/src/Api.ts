@@ -1,74 +1,160 @@
 const BASE_URL = "http://127.0.0.1:8000/api";
 
 function getToken(): string | null {
-  return localStorage.getItem("access");
+    return localStorage.getItem("access");
 }
 
 export async function login(username: string, password: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/token/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  if (!res.ok) {
-    throw new Error("Invalid username or password");
-  }
-  const data = await res.json();
-  localStorage.setItem("access", data.access);
-  localStorage.setItem("refresh", data.refresh);
-}
+    const res = await fetch(`${BASE_URL}/token/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+        throw new Error("Invalid username or password");
+    }
+    const data = await res.json();
+    localStorage.setItem("access", data.access);
+    localStorage.setItem("refresh", data.refresh);
+    }
 
 
 export function logout(): void {
-  localStorage.removeItem("access");
-  localStorage.removeItem("refresh");
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
 }
 
 export function isLoggedIn(): boolean {
-  return localStorage.getItem("access") !== null;
+    return localStorage.getItem("access") !== null;
 }
 
+
+
+async function refreshAccessToken(): Promise<boolean> {
+    const refresh = localStorage.getItem("refresh");
+    if (!refresh) return false;
+
+    const res = await fetch(`${BASE_URL}/token/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+    });
+
+    if (!res.ok) {
+        // refresh itself expired/invalid — user must log in again
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        return false;
+    }
+
+    const data = await res.json();
+    localStorage.setItem("access", data.access);
+    return true;
+}
+
+
 async function request(path: string) { // request helper to attach auth, check status and parse json 
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}${path}`, {
+    let token = getToken();
+    let res = await fetch(`${BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
+
+  if (res.status === 401) { // token expired
+    const isRefreshed = await refreshAccessToken();
+    if (isRefreshed) {
+        token = getToken();
+        res = await fetch(`${BASE_URL}${path}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+    }
+  }
+
   if (!res.ok) {
     throw new Error(`API returned ${res.status}`);
   }
   return res.json();
 }
 
+
+
+
+
+
+export async function draftTask(input: string): Promise<DraftResult>{
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/tasks/draft/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? {Authorization: `Bearer ${token}`} : {}),
+        },
+        body: JSON.stringify({input}),
+    });
+    if (res.status === 503)
+        throw new Error("AI service unavailable");
+    if (!res.ok)
+        throw new Error("Couldn't draft a task from input");
+    return res.json();
+}
+
+export async function createTask(task:CreateTaskInput): Promise<void> {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/tasks/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? {Authorization: `Bearer ${token}`} : {}),
+        },
+        body: JSON.stringify(task),
+    })
+    if (!res.ok)
+        throw new Error(`Could not create task: ${res.status}`);
+}
+
+export type DraftResult = {
+    title: string;
+    description: string;
+    priority: string;
+}
+
+export type CreateTaskInput = {
+    board: number;
+    status: number;
+    title: string;
+    description: string;
+    position: number;
+};
+
 export type Board = {
-  id: number;
-  key: string;
-  name: string;
+    id: number;
+    key: string;
+    name: string;
 };
 
 export type Task = {
-  id: number;
-  key: string;
-  title: string;
-  description: string;
+    id: number;
+    key: string;
+    title: string;
+    description: string;
 };
 
 export type Column = {
-  id: number;
-  name: string;
-  tasks: Task[];
+    id: number;
+    name: string;
+    tasks: Task[];
 };
 
 export type BoardDetail = {
-  id: number;
-  name: string;
-  key: string;
-  columns: Column[];
+    id: number;
+    name: string;
+    key: string;
+    columns: Column[];
 };
 
 export function getBoards(): Promise<Board[]> {
-  return request("/boards/");
+    return request("/boards/");
 }
 
 export function getBoard(id: string): Promise<BoardDetail> {
-  return request("/boards/" + id + "/");
+    return request("/boards/" + id + "/");
 }
