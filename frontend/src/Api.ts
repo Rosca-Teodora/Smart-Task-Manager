@@ -111,6 +111,33 @@ export async function createTask(task:CreateTaskInput): Promise<void> {
         throw new Error(`Could not create task: ${res.status}`);
 }
 
+export async function createBoard(board: { name: string; key: string }): Promise<Board> {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/boards/`, {
+        method: "POST",
+        headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(board),
+    });
+    if (!res.ok) throw new Error(`Could not create board: ${res.status}`);
+    return res.json();
+}
+
+export async function createColumn(column: { board: number; name: string; position: number }): Promise<void> {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/columns/`, {
+        method: "POST",
+        headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(column),
+    });
+    if (!res.ok) throw new Error(`Could not create column: ${res.status}`);
+}
+
 export type DraftResult = {
     title: string;
     description: string;
@@ -151,10 +178,61 @@ export type BoardDetail = {
     columns: Column[];
 };
 
+export type TaskDetail = {
+    id: number;
+    key: string;
+    title: string;
+    description: string;
+    created_date: string;
+    last_edited_date: string;
+    status: number;
+    board: number;
+};
+
 export function getBoards(): Promise<Board[]> {
     return request("/boards/");
 }
 
 export function getBoard(id: string): Promise<BoardDetail> {
     return request("/boards/" + id + "/");
+}
+
+export function getTask(id: string): Promise<TaskDetail> {
+    return request("/tasks/" + id + "/");
+}
+
+async function mutate(path: string, method: string, body?: unknown) {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`${method} ${path} failed: ${res.status}`);
+  return res.status === 204 ? null : res.json();
+}
+
+// DELETES
+export async function deleteBoard(id: number): Promise<void> {
+  await mutate(`/boards/${id}/`, "DELETE");
+}
+export async function deleteColumn(id: number): Promise<void> {
+  await mutate(`/columns/${id}/`, "DELETE");
+}
+export async function deleteTask(id: number): Promise<void> {
+  await mutate(`/tasks/${id}/`, "DELETE");
+}
+
+// EDITS (PATCH — partial update, only send changed fields)
+export async function updateBoard(id: number, data: { name?: string; key?: string }): Promise<void> {
+  await mutate(`/boards/${id}/`, "PATCH", data);
+}
+export async function updateColumn(id: number, data: { name?: string }): Promise<void> {
+  await mutate(`/columns/${id}/`, "PATCH", data);
+}
+export async function updateTask(id: number, data: { title?: string; description?: string; status?: number }): Promise<void> {
+  await mutate(`/tasks/${id}/`, "PATCH", data);
 }

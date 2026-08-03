@@ -1,22 +1,23 @@
 import { useState } from "react";
-import { draftTask, createTask } from "../Api";
+import { draftTask, createTask, type Column } from "../Api";
 
 type Props = {
     boardId: number;
-    statusId: number;   // which column the new task lands in
+    columns: Column[];   // the board's columns, user picks which one the task lands in
     onCreated: () => void;  // callback to refresh the board after saving
 };
 
-function DraftTask({ boardId, statusId, onCreated }: Props) {
+function DraftTask({ boardId, columns, onCreated }: Props) {
     const [input, setInput] = useState("");
     const [drafting, setDrafting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [statusId, setStatusId] = useState<number | null>(columns[0]?.id ?? null);
 
-    // The editable draft fields (filled by AI, then user-editable)
+    // The editable task fields (filled by AI or typed manually)
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [priority, setPriority] = useState("");
-    const [hasDraft, setHasDraft] = useState(false);
+    const [editing, setEditing] = useState(false);
 
     async function handleDraft() {
         setError(null);
@@ -26,7 +27,7 @@ function DraftTask({ boardId, statusId, onCreated }: Props) {
         setTitle(result.title);
         setDescription(result.description);
         setPriority(result.priority);
-        setHasDraft(true);
+        setEditing(true);
         } catch (err) {
         setError(err instanceof Error ? err.message : "Drafting failed");
         } finally {
@@ -36,6 +37,10 @@ function DraftTask({ boardId, statusId, onCreated }: Props) {
 
     async function handleSave() {
         setError(null);
+        if (statusId === null) {
+        setError("Pick a column for the task");
+        return;
+        }
         try {
         await createTask({
             board: boardId,
@@ -49,7 +54,7 @@ function DraftTask({ boardId, statusId, onCreated }: Props) {
         setTitle("");
         setDescription("");
         setPriority("");
-        setHasDraft(false);
+        setEditing(false);
         onCreated();  // tell the parent to refetch the board
         } catch (err) {
         setError(err instanceof Error ? err.message : "Save failed");
@@ -58,7 +63,7 @@ function DraftTask({ boardId, statusId, onCreated }: Props) {
 
     return (
         <div className="rounded border p-4 space-y-3">
-        <h3 className="font-semibold">Draft a task with AI</h3>
+        <h3 className="font-semibold">Add a task using AI</h3>
 
         <div className="flex gap-2">
             <input
@@ -78,28 +83,52 @@ function DraftTask({ boardId, statusId, onCreated }: Props) {
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        {hasDraft && (
+        {editing && (
             <div className="space-y-2 border-t pt-3">
             <input
                 className="w-full rounded border p-2 font-medium"
+                placeholder="Task title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
             />
             <textarea
                 className="w-full rounded border p-2 text-sm"
                 rows={3}
+                placeholder="Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
             />
-            <div className="text-xs text-gray-500">
+            {priority && (
+                <div className="text-xs text-gray-500">
                 Suggested priority: <span className="font-medium">{priority}</span>
-            </div>
-            <button
-                className="rounded bg-green-600 text-white px-4 py-2"
-                onClick={handleSave}
+                </div>
+            )}
+            <select
+                className="w-full rounded border p-2 text-sm"
+                value={statusId ?? ""}
+                onChange={(e) => setStatusId(Number(e.target.value))}
             >
+                {columns.map((column) => (
+                <option key={column.id} value={column.id}>
+                    {column.name}
+                </option>
+                ))}
+            </select>
+            <div className="flex gap-2">
+                <button
+                className="rounded bg-green-600 text-white px-4 py-2 disabled:opacity-50"
+                onClick={handleSave}
+                disabled={!title.trim()}
+                >
                 Save task
-            </button>
+                </button>
+                <button
+                className="rounded border px-4 py-2"
+                onClick={() => setEditing(false)}
+                >
+                Cancel
+                </button>
+            </div>
             </div>
         )}
         </div>
