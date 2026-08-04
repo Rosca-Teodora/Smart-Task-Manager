@@ -301,6 +301,6 @@ export async function updateTask(id: number, data: { title?: string; description
   await mutate(`/tasks/${id}/`, "PATCH", data);
 }
 
-// export async function updateComment(id:number, data: {text?: string; }) {
-    
-// }
+export async function updateComment(id: number, data: { text: string }): Promise<Comment> {
+    return mutate(`/comments/${id}/`, "PATCH", data);
+}

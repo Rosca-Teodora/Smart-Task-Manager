@@ -75,6 +75,10 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ["id", "task", "text", "author", "created_date", "last_edited_date"]
         read_only_fields = ["id", "created_date", "last_edited_date"]
 
+    def update(self, instance, validated_data):
+        validated_data.pop("task", None)  # a comment cannot be moved to another task
+        return super().update(instance, validated_data)
+
 
 class TaskDetailSerializer(serializers.ModelSerializer):
     key = serializers.SerializerMethodField()

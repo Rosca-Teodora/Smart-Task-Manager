@@ -5,7 +5,8 @@ from rest_framework import viewsets, generics
 from rest_framework.response import Response
 from . models import Board, Task, Column, UserBoard, AssignedTask, Comment
 from rest_framework.permissions import AllowAny
-from .permissions import BoardMemberPermission, TaskAndColumnBoardMemberPermission
+from rest_framework.exceptions import PermissionDenied
+from .permissions import BoardMemberPermission, TaskAndColumnBoardMemberPermission, CommentPermission
 from rest_framework.decorators import action
 from rest_framework import status
 from .ai import draft_ticket
@@ -87,6 +88,7 @@ class CreateUserView(generics.CreateAPIView): # register view
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     queryset = Comment.objects.all()
+    permission_classes = [CommentPermission]
 
     def get_queryset(self):
         qs = Comment.objects.filter(task__board__userboard__user=self.request.user)
@@ -101,5 +103,5 @@ class CommentViewSet(viewsets.ModelViewSet):
             board=task.board, user=self.request.user
         ).exists()
         if not is_member:
-            raise PermissionError("You are not a member of this board")
+            raise PermissionDenied("You are not a member of this board")
         serializer.save(user=self.request.user)

@@ -8,6 +8,7 @@ import {
     createComment,
     getComments,
     deleteComment,
+    updateComment,
     type Priority,
     type TaskDetail,
     type Column,
@@ -60,6 +61,9 @@ function TaskDetailPage() {
     const [commentError, setCommentError] = useState<string | null>(null);
     const [confirmDeleteComment, setConfirmDeleteComment] = useState<number | null>(null);
     const [deletingComment, setDeletingComment] = useState<number | null>(null);
+    const [editingComment, setEditingComment] = useState<number | null>(null);
+    const [commentDraft, setCommentDraft] = useState("");
+    const [savingComment, setSavingComment] = useState<number | null>(null);
 
     function refetchTask() {
         if (!taskId) return;
@@ -147,6 +151,13 @@ function TaskDetailPage() {
         }
     }
 
+    function commentErrorMessage(err: unknown, fallback: string) {
+        if (err instanceof Error && err.message.includes("403")) {
+            return "Only the author can change this comment.";
+        }
+        return err instanceof Error ? err.message : fallback;
+    }
+
     async function handleDeleteComment(commentId: number) {
         setCommentError(null);
         setDeletingComment(commentId);
@@ -155,9 +166,34 @@ function TaskDetailPage() {
             setComments((current) => current.filter((c) => c.id !== commentId));
             setConfirmDeleteComment(null);
         } catch (err) {
-            setCommentError(err instanceof Error ? err.message : "Could not delete comment");
+            setCommentError(commentErrorMessage(err, "Could not delete comment"));
         } finally {
             setDeletingComment(null);
+        }
+    }
+
+    function startEditComment(comment: Comment) {
+        setCommentError(null);
+        setConfirmDeleteComment(null);
+        setCommentDraft(comment.text);
+        setEditingComment(comment.id);
+    }
+
+    async function handleUpdateComment(commentId: number) {
+        const text = commentDraft.trim();
+        if (!text) return;
+        setCommentError(null);
+        setSavingComment(commentId);
+        try {
+            const updated = await updateComment(commentId, { text });
+            setComments((current) =>
+                current.map((c) => (c.id === commentId ? updated : c))
+            );
+            setEditingComment(null);
+        } catch (err) {
+            setCommentError(commentErrorMessage(err, "Could not save comment"));
+        } finally {
+            setSavingComment(null);
         }
     }
 
@@ -379,17 +415,66 @@ function TaskDetailPage() {
                                         >
                                             {formatDate(c.created_date)}
                                         </time>
-                                        <button
-                                            className="btn btn-sm btn-danger ml-auto opacity-0 transition duration-150 group-hover/comment:opacity-100 focus-visible:opacity-100"
-                                            aria-label={`Delete comment by ${c.author}`}
-                                            onClick={() => setConfirmDeleteComment(c.id)}
-                                        >
-                                            Delete
-                                        </button>
+                                        {c.last_edited_date !== c.created_date && (
+                                            <span className="text-meta text-ink-faint">edited</span>
+                                        )}
+                                        {editingComment !== c.id && (
+                                            <div className="ml-auto flex items-center gap-0.5 opacity-0 transition duration-150 group-hover/comment:opacity-100 focus-within:opacity-100">
+                                                <button
+                                                    className="btn btn-sm btn-ghost"
+                                                    aria-label={`Edit comment by ${c.author}`}
+                                                    onClick={() => startEditComment(c)}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-danger"
+                                                    aria-label={`Delete comment by ${c.author}`}
+                                                    onClick={() => setConfirmDeleteComment(c.id)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                    <p className="mt-1.5 whitespace-pre-wrap text-body leading-relaxed text-pretty text-ink">
-                                        {c.text}
-                                    </p>
+                                    {editingComment === c.id ? (
+                                        <div className="mt-2 flex flex-col gap-2">
+                                            <label className="sr-only" htmlFor={`comment-${c.id}`}>
+                                                Edit comment
+                                            </label>
+                                            <textarea
+                                                id={`comment-${c.id}`}
+                                                className="input resize-y leading-relaxed"
+                                                rows={3}
+                                                autoFocus
+                                                value={commentDraft}
+                                                onChange={(e) => setCommentDraft(e.target.value)}
+                                            />
+                                            <div className="flex gap-2">
+                                                <button
+                                                    className="btn btn-sm btn-primary"
+                                                    disabled={
+                                                        savingComment === c.id ||
+                                                        !commentDraft.trim() ||
+                                                        commentDraft.trim() === c.text
+                                                    }
+                                                    onClick={() => handleUpdateComment(c.id)}
+                                                >
+                                                    {savingComment === c.id ? "Saving…" : "Save"}
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-secondary"
+                                                    onClick={() => setEditingComment(null)}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="mt-1.5 whitespace-pre-wrap text-body leading-relaxed text-pretty text-ink">
+                                            {c.text}
+                                        </p>
+                                    )}
                                     {confirmDeleteComment === c.id && (
                                         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-control bg-danger-soft px-3 py-2">
                                             <p className="text-meta text-danger">Delete this comment?</p>
