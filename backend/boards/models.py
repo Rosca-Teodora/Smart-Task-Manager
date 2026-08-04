@@ -39,6 +39,11 @@ class Column(models.Model): # things like: to do, done, bugs etc.
         return f"{self.name}"
 
 class Task(models.Model):
+    class Priority(models.TextChoices):
+        LOW = "LOW", "Low"
+        MED = "MED", "Medium"
+        HIGH = "HIGH", "High"
+
     title = models.CharField(max_length=200)
     description = models.CharField(max_length=600)
     created_date = models.DateTimeField(auto_now_add=True)
@@ -46,6 +51,7 @@ class Task(models.Model):
     deadline = models.DateTimeField(null=True, blank=True)
     number = models.IntegerField(default=1)
     position = models.FloatField()
+    priority = models.CharField(max_length=4, choices=Priority.choices, default=Priority.MED)
 
     board = models.ForeignKey(Board, on_delete=models.CASCADE) # FK needed to not take columns/ statuses from any project, ony from current board
     status = models.ForeignKey(Column, on_delete=models.PROTECT,) # error when deleting column with tasks inside 
