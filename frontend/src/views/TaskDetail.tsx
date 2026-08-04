@@ -5,9 +5,13 @@ import {
     getBoard,
     updateTask,
     deleteTask,
+    createComment,
+    getComments,
+    deleteComment,
     type Priority,
     type TaskDetail,
     type Column,
+    type Comment,
 } from "../Api";
 import PriorityTag from "../components/PriorityTag";
 import { PRIORITY_OPTIONS } from "../components/priority";
@@ -50,9 +54,19 @@ function TaskDetailPage() {
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
 
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [commentText, setCommentText] = useState("");
+    const [postingComment, setPostingComment] = useState(false);
+    const [commentError, setCommentError] = useState<string | null>(null);
+    const [confirmDeleteComment, setConfirmDeleteComment] = useState(false);
+
     function refetchTask() {
         if (!taskId) return;
-        getTask(taskId).then((data) => setTask(data)).catch((err) => setError(err.message));
+        getTask(taskId).then((data) => {
+            setTask(data);
+            setComments(data.comments);
+            })
+            .catch((err)=> setError(err.message));
     }
 
     useEffect(() => {
@@ -64,6 +78,7 @@ function TaskDetailPage() {
                 if (!ignore) {
                     setTask(taskData);
                     setColumns(boardData.columns);
+                    setComments(taskData.comments);
                 }
             })
             .catch((err) => { if (!ignore) setError(err.message); })
@@ -112,6 +127,35 @@ function TaskDetailPage() {
             setConfirmDelete(false);
         }
     }
+
+    async function handleAddComment() {
+        if (!task) return;
+        setCommentError(null);
+        setPostingComment(true);
+         
+        try {
+            await createComment({task: task.id, text: commentText.trim()})
+            const fresh = await getComments(task.id);
+            setComments(fresh);
+            setCommentText("");
+        } catch (err) {
+            setCommentError(err instanceof Error ? err.message : "Could not post comment");
+        } finally {
+            setPostingComment(false);
+        }
+    }
+
+    // async function handleDeleteComment() {
+    //     if (!task) return;
+    //     setActionError(null);
+    //     try {
+    //         await deleteComment(task.id);
+    //         navigate(`/boards/${boardId}`);
+    //     } catch (err) {
+    //         setActionError(err instanceof Error ? err.message : "Delete failed");
+    //         setConfirmDelete(false);
+    //     }
+    // }
 
     const backLink = (
         <Link
@@ -312,6 +356,62 @@ function TaskDetailPage() {
                             </dl>
                         </aside>
                     </div>
+                    <section className="mt-4 rounded-panel border border-line bg-surface p-5">
+                    <h2 className="text-meta font-medium text-ink-muted">
+                        Comments{comments.length > 0 && ` (${comments.length})`}
+                    </h2>
+
+                    <div className="mt-3 flex flex-col gap-3">
+                        {comments.length === 0 ? (
+                            <p className="text-body text-ink-faint">No comments yet.</p>
+                        ) : (
+                            comments.map((c) => (
+                                <div key={c.id} className="rounded-card bg-subtle px-4 py-3">
+                                    <div className="flex items-baseline justify-between gap-3">
+                                        <span className="text-label font-medium text-ink">{c.author}</span>
+                                        <time
+                                            dateTime={c.created_date}
+                                            className="text-meta tabular-nums text-ink-faint"
+                                        >
+                                            {formatDate(c.created_date)}
+                                        </time>
+                                        <button
+                                            className="btn btn-md btn-danger"
+                                            onClick={() => setConfirmDeleteComment(true)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                    <p className="mt-1.5 whitespace-pre-wrap text-body leading-relaxed text-pretty text-ink">
+                                        {c.text}
+                                    </p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <form onSubmit={handleAddComment} className="mt-4 flex flex-col gap-2">
+                        <textarea
+                            className="input resize-y leading-relaxed"
+                            rows={3}
+                            placeholder="Add a comment…"
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                        />
+                        {commentError && (
+                            <p className="rounded-control bg-danger-soft px-2.5 py-2 text-meta text-danger" role="alert">
+                                {commentError}
+                            </p>
+                        )}
+                        <button
+                            className="btn btn-md btn-primary self-start"
+                            type="submit"
+                            disabled={postingComment || !commentText.trim()}
+                        >
+                            {postingComment ? "Posting…" : "Post comment"}
+                        </button>
+                    </form>
+                </section>
                 </>
             )}
         </main>

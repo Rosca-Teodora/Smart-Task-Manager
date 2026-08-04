@@ -150,6 +150,19 @@ export async function createColumn(column: { board: number; name: string; positi
     if (!res.ok) throw new Error(`Could not create column: ${res.status}`);
 }
 
+export async function createComment(comment: CreateCommentInput): Promise<void>{
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/comments/`, {
+        method: "POST",
+        headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(comment),
+    });
+    if (!res.ok) throw new Error(`Could not post comment: ${res.status}`);
+}
+
 export type Priority = "LOW" | "MED" | "HIGH";
 
 export type DraftResult = {
@@ -200,11 +213,26 @@ export type BoardDetail = {
     columns: Column[];
 };
 
+export type CreateCommentInput = {
+    task: number;
+    text: string;
+};
+
+export type Comment = {
+    id: number;
+    text: string;
+    task: number;
+    author: string;
+    created_date: string;
+    last_edited_date: string;
+}
+
 export type TaskDetail = {
     id: number;
     key: string;
     title: string;
     description: string;
+    comments: Comment[]
     created_date: string;
     last_edited_date: string;
     status: number;
@@ -222,6 +250,10 @@ export function getBoard(id: string): Promise<BoardDetail> {
 
 export function getTask(id: string): Promise<TaskDetail> {
     return request("/tasks/" + id + "/");
+}
+
+export function getComments(taskId: number): Promise<Comment[]> {
+    return request(`/comments/?task=${taskId}`);
 }
 
 async function mutate(path: string, method: string, body?: unknown) {
@@ -242,20 +274,33 @@ async function mutate(path: string, method: string, body?: unknown) {
 export async function deleteBoard(id: number): Promise<void> {
   await mutate(`/boards/${id}/`, "DELETE");
 }
+
 export async function deleteColumn(id: number): Promise<void> {
   await mutate(`/columns/${id}/`, "DELETE");
 }
+
 export async function deleteTask(id: number): Promise<void> {
   await mutate(`/tasks/${id}/`, "DELETE");
 }
+
+export async function deleteComment(id: number): Promise<void> {
+    await mutate(`/comments/${id}/`, "DELETE");
+}
+
 
 // EDITS (PATCH — partial update, only send changed fields)
 export async function updateBoard(id: number, data: { name?: string; key?: string }): Promise<void> {
   await mutate(`/boards/${id}/`, "PATCH", data);
 }
+
 export async function updateColumn(id: number, data: { name?: string }): Promise<void> {
   await mutate(`/columns/${id}/`, "PATCH", data);
 }
+
 export async function updateTask(id: number, data: { title?: string; description?: string; status?: number; priority?: Priority }): Promise<void> {
   await mutate(`/tasks/${id}/`, "PATCH", data);
 }
+
+// export async function updateComment(id:number, data: {text?: string; }) {
+    
+// }

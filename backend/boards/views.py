@@ -89,7 +89,17 @@ class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
 
     def get_queryset(self):
-        return Comment.objects.filter(task__board__userboard__user=self.request.user)
+        qs = Comment.objects.filter(task__board__userboard__user=self.request.user)
+        task_id = self.request.query_params.get("task")
+        if task_id is not None:
+            qs = qs.filter(task_id=task_id)
+        return qs
 
     def perform_create(self, serializer):
+        task = serializer.validated_data["task"]
+        is_member = UserBoard.objects.filter(
+            board=task.board, user=self.request.user
+        ).exists()
+        if not is_member:
+            raise PermissionError("You are not a member of this board")
         serializer.save(user=self.request.user)
