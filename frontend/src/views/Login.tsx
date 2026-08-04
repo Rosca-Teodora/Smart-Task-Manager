@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 
 function Login() {
+    const notice = (useLocation().state as { message?: string } | null)?.message;
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -41,6 +42,12 @@ function Login() {
 
             <section className="w-full rounded-panel border border-line bg-surface p-6 shadow-[0_20px_50px_-30px_rgba(28,24,21,0.45)]">
                 <h2 className="text-label font-semibold tracking-[-0.01em] text-ink">Sign in</h2>
+
+                {notice && (
+                    <p className="mt-4 rounded-control bg-accent-soft px-2.5 py-2 text-meta text-accent">
+                        {notice}
+                    </p>
+                )}
 
                 <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4" noValidate>
                     <label className="flex flex-col gap-1">
@@ -83,15 +90,17 @@ function Login() {
                     >
                         {submitting ? "Signing in…" : "Sign in"}
                     </button>
-                    <p>
-                        Don't have an account? 
-                        <div>
-                            <Link to ="/register/" replace = {true}>
-                                Sign Up
-                            </Link>
-                        </div>
-                    </p>
                 </form>
+
+                <p className="mt-5 border-t border-line pt-4 text-center text-label text-ink-muted">
+                    Don&rsquo;t have an account?{" "}
+                    <Link
+                        to="/register"
+                        className="rounded-control font-medium text-accent underline-offset-2 transition duration-150 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                        Sign up
+                    </Link>
+                </p>
             </section>
         </main>
     );

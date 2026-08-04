@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Board, UserBoard, Column, Task, AssignedTask
+from .models import Board, UserBoard, Column, Task, AssignedTask, Comment
 
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
@@ -26,3 +26,7 @@ class TaskAdmin(admin.ModelAdmin):
 @admin.register(AssignedTask)
 class AssignedTaskAdmin(admin.ModelAdmin):
     list_display = ["task", "user"]
+
+@admin.register(Comment)
+class CommentAdmin(admin.ModelAdmin):
+    list_display = ["user", "text", "created_date", "last_edited_date"]

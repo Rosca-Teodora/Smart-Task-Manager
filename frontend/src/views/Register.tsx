@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { register } from "../Api";
 
@@ -42,6 +42,9 @@ function Register() {
                 <h1 className="text-title font-semibold tracking-[-0.03em] text-balance text-ink lg:text-display lg:leading-[1.05]">
                     Every task in one place.
                 </h1>
+                <p className="mt-4 max-w-[46ch] text-body leading-relaxed text-ink-muted">
+                    Create an account and start your first board.
+                </p>
             </section>
 
             <section className="w-full rounded-panel border border-line bg-surface p-6 shadow-[0_20px_50px_-30px_rgba(28,24,21,0.45)]">
@@ -65,7 +68,7 @@ function Register() {
                         <input
                             className="input"
                             type="password"
-                            autoComplete="current-password"
+                            autoComplete="new-password"
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -89,6 +92,16 @@ function Register() {
                         {submitting ? "Signing up…" : "Sign up"}
                     </button>
                 </form>
+
+                <p className="mt-5 border-t border-line pt-4 text-center text-label text-ink-muted">
+                    Already have an account?{" "}
+                    <Link
+                        to="/login"
+                        className="rounded-control font-medium text-accent underline-offset-2 transition duration-150 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                        Sign in
+                    </Link>
+                </p>
             </section>
         </main>
     );

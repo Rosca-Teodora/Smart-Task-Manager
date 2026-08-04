@@ -1,6 +1,6 @@
 # lifesaver: https://www.django-rest-framework.org/api-guide/serializers/#modelserializer
 from rest_framework import serializers
-from .models import Board, UserBoard, Column, Task, AssignedTask
+from .models import Board, UserBoard, Column, Task, AssignedTask, Comment
 from django.contrib.auth import get_user_model
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -66,3 +66,27 @@ class CreateUserSerializer(serializers.ModelSerializer):
         user.set_password(valid_data['password'])
         user.save()
         return user
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.CharField(source="user.username", read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ["id", "task", "text", "author", "created_date", "last_edited_date"]
+        read_only_fields = ["id", "created_date", "last_edited_date"]
+
+
+class TaskDetailSerializer(serializers.ModelSerializer):
+    key = serializers.SerializerMethodField()
+    comments = CommentSerializer(many=True, read_only=True, source="comment_set")
+
+    class Meta: 
+        model = Task
+        fields = ["id", "key", "title", "description", "created_date",
+                  "last_edited_date", "deadline", "number", "position",
+                  "priority", "board", "status", "comments"]
+        read_only_fields = ["id", "number", "created_date", "last_edited_date"]
+        validators = []
+    
+    def get_key(self, obj):
+        return f"{obj.board.key}-{obj.number}"

@@ -94,3 +94,15 @@ class AssignedTask(models.Model):
     def __str__(self):
         return f"{self.user}-{self.task}"
 
+class Comment(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owner")
+    task = models.ForeignKey(Task, on_delete=models.CASCADE)
+    text = models.CharField(max_length=600)
+    created_date = models.DateTimeField(auto_now_add=True)
+    last_edited_date = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_date"]
+
+    def __str__(self):
+            return f"{self.text}"

@@ -1,9 +1,9 @@
 from django.shortcuts import render
 from django.contrib.auth import get_user_model
-from boards.serializers import BoardSerializer, TaskSerializer, AssignedTaskSerializer, UserBoardSerializer, ColumnSerializer, CreateUserSerializer, BoardDetailSerializer
+from boards.serializers import BoardSerializer, TaskSerializer, AssignedTaskSerializer, UserBoardSerializer, ColumnSerializer, CreateUserSerializer, BoardDetailSerializer, CommentSerializer, TaskDetailSerializer
 from rest_framework import viewsets, generics
 from rest_framework.response import Response
-from . models import Board, Task, Column, UserBoard, AssignedTask 
+from . models import Board, Task, Column, UserBoard, AssignedTask, Comment
 from rest_framework.permissions import AllowAny
 from .permissions import BoardMemberPermission, TaskAndColumnBoardMemberPermission
 from rest_framework.decorators import action
@@ -52,6 +52,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Task.objects.filter(board__userboard__user = self.request.user) 
 
+    def get_serializer_class(self): # return diff serializer based on actual request. if details are needed return the columns as well (seperate Detailed serializer) else return flat one
+        if self.action == "retrieve":
+            return TaskDetailSerializer
+        return TaskSerializer
+
     @action(detail=False, methods=["post"])
     def draft(self, request):
         user_input = request.data.get("input", "").strip()
@@ -78,3 +83,13 @@ class CreateUserView(generics.CreateAPIView): # register view
     serializer_class = CreateUserSerializer
     queryset = get_user_model().objects.all()
     permission_classes = [AllowAny]
+
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    queryset = Comment.objects.all()
+
+    def get_queryset(self):
+        return Comment.objects.filter(task__board__userboard__user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
