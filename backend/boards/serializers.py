@@ -3,18 +3,28 @@ from rest_framework import serializers
 from .models import Board, UserBoard, Column, Task, AssignedTask, Comment
 from django.contrib.auth import get_user_model
 
+class AssignedTaskSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+
+    class Meta:
+        model = AssignedTask
+        fields = ["id", "task", "user", "username"]
+        read_only_fields = ["id"]
+
+
 class TaskSerializer(serializers.ModelSerializer):
     key = serializers.SerializerMethodField()
-    
-    class Meta: 
+    assignees = AssignedTaskSerializer(many=True, read_only=True, source="assignments")
+
+    class Meta:
         model = Task
         fields = '__all__'
         read_only_fields = ["id", "number", "created_date", "last_edited_date"]
         validators = []
-    
+
     def get_key(self, obj):
         return f"{obj.board.key}-{obj.number}"
-    
+
 
 class ColumnSerializer(serializers.ModelSerializer):
     tasks = TaskSerializer(many=True, read_only=True, source="task_set")
@@ -25,22 +35,18 @@ class ColumnSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
     
 
-class AssignedTaskSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AssignedTask
-        fields = '__all__'
-    
 class UserBoardSerializer(serializers.ModelSerializer):
     class Meta: 
         model = UserBoard
         fields = '__all__'
 
 class BoardMemberSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True, source="user.id")
     username = serializers.CharField(read_only=True, source="user.username")
 
     class Meta:
         model = UserBoard
-        fields = ["username", "role"]
+        fields = ["id", "username", "role"]
 
 class BoardSerializer(serializers.ModelSerializer):
     class Meta:
@@ -76,19 +82,20 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_date", "last_edited_date"]
 
     def update(self, instance, validated_data):
-        validated_data.pop("task", None)  # a comment cannot be moved to another task
+        validated_data.pop("task", None)
         return super().update(instance, validated_data)
 
 
 class TaskDetailSerializer(serializers.ModelSerializer):
     key = serializers.SerializerMethodField()
     comments = CommentSerializer(many=True, read_only=True, source="comment_set")
+    assignees = AssignedTaskSerializer(many=True, read_only=True, source="assignments")
 
-    class Meta: 
+    class Meta:
         model = Task
         fields = ["id", "key", "title", "description", "created_date",
                   "last_edited_date", "deadline", "number", "position",
-                  "priority", "board", "status", "comments"]
+                  "priority", "board", "status", "comments", "assignees"]
         read_only_fields = ["id", "number", "created_date", "last_edited_date"]
         validators = []
     

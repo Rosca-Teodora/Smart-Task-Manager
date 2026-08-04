@@ -1,4 +1,4 @@
-const BASE_URL = "http://127.0.0.1:8000/api";
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
 
 function getToken(): string | null {
     return localStorage.getItem("access");
@@ -92,16 +92,30 @@ async function request(path: string) { // request helper to attach auth, check s
 
 
 
+// POST helper that retries once after a token refresh, so callers can keep
+// their own status handling instead of going through mutate()
+async function post(path: string, body: unknown): Promise<Response> {
+    const send = () => {
+        const token = getToken();
+        return fetch(`${BASE_URL}${path}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(body),
+        });
+    };
+
+    const res = await send();
+    if (res.status === 401 && await refreshAccessToken()) {
+        return send();
+    }
+    return res;
+}
+
 export async function draftTask(input: string): Promise<DraftResult>{
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}/tasks/draft/`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? {Authorization: `Bearer ${token}`} : {}),
-        },
-        body: JSON.stringify({input}),
-    });
+    const res = await post("/tasks/draft/", {input});
     if (res.status === 503)
         throw new Error("AI service unavailable");
     if (!res.ok)
@@ -110,56 +124,24 @@ export async function draftTask(input: string): Promise<DraftResult>{
 }
 
 export async function createTask(task:CreateTaskInput): Promise<void> {
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}/tasks/`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? {Authorization: `Bearer ${token}`} : {}),
-        },
-        body: JSON.stringify(task),
-    })
+    const res = await post("/tasks/", task);
     if (!res.ok)
         throw new Error(`Could not create task: ${res.status}`);
 }
 
 export async function createBoard(board: { name: string; key: string }): Promise<Board> {
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}/boards/`, {
-        method: "POST",
-        headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(board),
-    });
+    const res = await post("/boards/", board);
     if (!res.ok) throw new Error(`Could not create board: ${res.status}`);
     return res.json();
 }
 
 export async function createColumn(column: { board: number; name: string; position: number }): Promise<void> {
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}/columns/`, {
-        method: "POST",
-        headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(column),
-    });
+    const res = await post("/columns/", column);
     if (!res.ok) throw new Error(`Could not create column: ${res.status}`);
 }
 
 export async function createComment(comment: CreateCommentInput): Promise<void>{
-    const token = getToken();
-    const res = await fetch(`${BASE_URL}/comments/`, {
-        method: "POST",
-        headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(comment),
-    });
+    const res = await post("/comments/", comment);
     if (!res.ok) throw new Error(`Could not post comment: ${res.status}`);
 }
 
@@ -192,6 +174,7 @@ export type Task = {
     title: string;
     description: string;
     priority: Priority;
+    assignees: Assignment[];
 };
 
 export type Column = {
@@ -201,8 +184,14 @@ export type Column = {
 };
 
 export type BoardMember = {
+    id: number;
     username: string;
     role: string;
+}
+
+export type CurrentUser = {
+    id: number;
+    username: string;
 }
 
 export type BoardDetail = {
@@ -233,6 +222,7 @@ export type TaskDetail = {
     title: string;
     description: string;
     comments: Comment[]
+    assignees: Assignment[];
     created_date: string;
     last_edited_date: string;
     status: number;
@@ -240,6 +230,15 @@ export type TaskDetail = {
     priority: Priority;
 };
 
+export type Assignment = {
+    id: number;
+    task: number;
+    user: number;
+    username: string;
+};
+
+
+// get functions
 export function getBoards(): Promise<Board[]> {
     return request("/boards/");
 }
@@ -256,16 +255,35 @@ export function getComments(taskId: number): Promise<Comment[]> {
     return request(`/comments/?task=${taskId}`);
 }
 
+export function getMe(): Promise<CurrentUser> {
+    return request("/me/");
+}
+
+export function getAssignments(taskId: number): Promise<Assignment[]> {
+    return request(`/assignments/?task=${taskId}`);
+}
+
+// helper to handle both delete and patch (both post requests)
 async function mutate(path: string, method: string, body?: unknown) {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const send = () => {
+    const token = getToken();
+    return fetch(`${BASE_URL}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  };
+
+  let res = await send();
+
+  if (res.status === 401) { // token expired
+    const isRefreshed = await refreshAccessToken();
+    if (isRefreshed) res = await send();
+  }
+
   if (!res.ok) throw new Error(`${method} ${path} failed: ${res.status}`);
   return res.status === 204 ? null : res.json();
 }
@@ -287,8 +305,16 @@ export async function deleteComment(id: number): Promise<void> {
     await mutate(`/comments/${id}/`, "DELETE");
 }
 
+export async function deleteAssignment(id: number): Promise<void> {
+    await mutate(`/assignments/${id}/`, "DELETE");
+}
 
-// EDITS (PATCH — partial update, only send changed fields)
+export async function createAssignment(taskId: number, userId: number): Promise<Assignment> {
+    return mutate("/assignments/", "POST", { task: taskId, user: userId });
+}
+
+
+// EDITS (patch only)
 export async function updateBoard(id: number, data: { name?: string; key?: string }): Promise<void> {
   await mutate(`/boards/${id}/`, "PATCH", data);
 }

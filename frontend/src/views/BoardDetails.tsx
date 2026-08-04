@@ -14,6 +14,7 @@ import DraftTask from "./DraftTask";
 import CreateTaskForm from "./CreateTaskForm";
 import PriorityTag from "../components/PriorityTag";
 import MemberAvatars from "../components/MemberAvatars";
+import { toneFor, initialsFor } from "../components/avatar";
 
 
 function CreateColumnForm({ boardId, nextPosition, onCreated }: {
@@ -141,6 +142,25 @@ function ColumnCard({ column, boardId, onChanged }: {
                     <PriorityTag priority={task.priority} />
                 </span>
                 <span className="mt-1 block text-body font-medium leading-snug text-ink">{task.title}</span>
+                {(task.assignees ?? []).length > 0 && (
+                    <span className="mt-2 flex items-center">
+                        {(task.assignees ?? []).slice(0, 3).map((a) => (
+                            <span
+                                key={a.id}
+                                title={a.username}
+                                className={`-ml-1.5 flex size-6 items-center justify-center rounded-full text-meta font-semibold tracking-tight ring-2 ring-surface first:ml-0 ${toneFor(a.username)}`}
+                            >
+                                <span aria-hidden="true">{initialsFor(a.username)}</span>
+                                <span className="sr-only">Assigned to {a.username}</span>
+                            </span>
+                        ))}
+                        {(task.assignees ?? []).length > 3 && (
+                            <span className="-ml-1.5 flex size-6 items-center justify-center rounded-full bg-subtle text-meta font-medium tabular-nums text-ink-muted ring-2 ring-surface">
+                                +{(task.assignees ?? []).length - 3}
+                            </span>
+                        )}
+                    </span>
+                )}
             </Link>
             </li>
             ))

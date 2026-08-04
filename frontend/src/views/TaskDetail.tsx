@@ -9,12 +9,18 @@ import {
     getComments,
     deleteComment,
     updateComment,
+    createAssignment,
+    deleteAssignment,
     type Priority,
     type TaskDetail,
     type Column,
     type Comment,
+    type BoardMember,
+    type Assignment,
 } from "../Api";
+import { useAuth } from "../AuthContext";
 import PriorityTag from "../components/PriorityTag";
+import AssigneeChip from "../components/AssigneeChip";
 import { PRIORITY_OPTIONS } from "../components/priority";
 
 const DATE_FORMAT: Intl.DateTimeFormatOptions = {
@@ -41,8 +47,10 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
 function TaskDetailPage() {
     const { boardId, taskId } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [task, setTask] = useState<TaskDetail | null>(null);
     const [columns, setColumns] = useState<Column[]>([]);
+    const [members, setMembers] = useState<BoardMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -65,11 +73,18 @@ function TaskDetailPage() {
     const [commentDraft, setCommentDraft] = useState("");
     const [savingComment, setSavingComment] = useState<number | null>(null);
 
+    const [assignees, setAssignees] = useState<Assignment[]>([]);
+    const [assignError, setAssignError] = useState<string | null>(null);
+    const [assigning, setAssigning] = useState(false);
+    const [removingAssignment, setRemovingAssignment] = useState<number | null>(null);
+    const [selectedMember, setSelectedMember] = useState("");
+
     function refetchTask() {
         if (!taskId) return;
         getTask(taskId).then((data) => {
             setTask(data);
             setComments(data.comments);
+            setAssignees(data.assignees);
             })
             .catch((err)=> setError(err.message));
     }
@@ -83,7 +98,9 @@ function TaskDetailPage() {
                 if (!ignore) {
                     setTask(taskData);
                     setColumns(boardData.columns);
+                    setMembers(boardData.members);
                     setComments(taskData.comments);
+                    setAssignees(taskData.assignees);
                 }
             })
             .catch((err) => { if (!ignore) setError(err.message); })
@@ -197,6 +214,44 @@ function TaskDetailPage() {
         }
     }
 
+    function assignErrorMessage(err: unknown, fallback: string) {
+        if (err instanceof Error && err.message.includes("403")) {
+            return "Only the board owner can change other members' assignments.";
+        }
+        if (err instanceof Error && err.message.includes("400")) {
+            return "That member is already assigned to this task.";
+        }
+        return err instanceof Error ? err.message : fallback;
+    }
+
+    async function handleAssign(userId: number) {
+        if (!task) return;
+        setAssignError(null);
+        setAssigning(true);
+        try {
+            const created = await createAssignment(task.id, userId);
+            setAssignees((current) => [...current, created]);
+            setSelectedMember("");
+        } catch (err) {
+            setAssignError(assignErrorMessage(err, "Could not assign this member"));
+        } finally {
+            setAssigning(false);
+        }
+    }
+
+    async function handleUnassign(assignment: Assignment) {
+        setAssignError(null);
+        setRemovingAssignment(assignment.id);
+        try {
+            await deleteAssignment(assignment.id);
+            setAssignees((current) => current.filter((a) => a.id !== assignment.id));
+        } catch (err) {
+            setAssignError(assignErrorMessage(err, "Could not remove this assignee"));
+        } finally {
+            setRemovingAssignment(null);
+        }
+    }
+
     const backLink = (
         <Link
             to={`/boards/${boardId}`}
@@ -231,6 +286,19 @@ function TaskDetailPage() {
     if (!task) return null;
 
     const column = columns.find((c) => c.id === task.status);
+
+    const isOwner = members.some(
+        (m) => m.username === user?.username && m.role === "owner"
+    );
+    const canModifyComment = (comment: Comment) =>
+        user !== null && (comment.author === user.username || isOwner);
+
+    const self = user ? members.find((m) => m.username === user.username) ?? null : null;
+    const assignedIds = new Set(assignees.map((a) => a.user));
+    const assignableMembers = members.filter((m) => !assignedIds.has(m.id));
+    const canAssignSelf = self !== null && !assignedIds.has(self.id);
+    const canUnassign = (assignment: Assignment) =>
+        isOwner || (user !== null && assignment.username === user.username);
 
     return (
         <main className="mx-auto min-h-[calc(100dvh-3.5rem)] max-w-3xl px-6 py-8 sm:px-8">
@@ -356,29 +424,107 @@ function TaskDetailPage() {
                         </p>
                     )}
 
-                    <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start">
-                        <section className="rounded-panel border border-line bg-surface p-5">
-                            <h2 className="text-meta font-medium text-ink-muted">Description</h2>
-                            {task.description.trim() ? (
-                                <p className="mt-2.5 whitespace-pre-wrap text-body leading-relaxed text-pretty text-ink">
-                                    {task.description}
-                                </p>
-                            ) : (
-                                <p className="mt-2.5 text-body text-ink-faint">
-                                    No description yet. Use{" "}
-                                    <button
-                                        className="rounded-control text-accent underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                                        onClick={startEdit}
-                                    >
-                                        Edit task
-                                    </button>{" "}
-                                    to add one.
-                                </p>
-                            )}
-                        </section>
+                    <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem] lg:grid-rows-[minmax(20rem,auto)]">
+                        <div className="lg:relative">
+                            <section className="flex flex-col rounded-panel border border-line bg-surface p-5 lg:absolute lg:inset-0">
+                                <h2 className="shrink-0 text-meta font-medium text-ink-muted">Description</h2>
+                                <div className="mt-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                                    {task.description.trim() ? (
+                                        <p className="whitespace-pre-wrap text-body leading-relaxed text-pretty text-ink">
+                                            {task.description}
+                                        </p>
+                                    ) : (
+                                        <p className="text-body text-ink-faint">
+                                            No description yet. Use{" "}
+                                            <button
+                                                className="rounded-control text-accent underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                                onClick={startEdit}
+                                            >
+                                                Edit task
+                                            </button>{" "}
+                                            to add one.
+                                        </p>
+                                    )}
+                                </div>
+                            </section>
+                        </div>
 
-                        <aside className="rounded-panel border border-line bg-subtle px-4 py-2">
-                            <dl>
+                        <aside className="rounded-panel border border-line bg-subtle px-4 py-3">
+                            <section>
+                                <h2 className="text-meta font-medium text-ink-muted">
+                                    Assignees{assignees.length > 0 && ` (${assignees.length})`}
+                                </h2>
+
+                                {assignees.length === 0 ? (
+                                    <p className="mt-2 text-label text-ink-faint">Nobody yet</p>
+                                ) : (
+                                    <ul className="mt-2 flex flex-col gap-1.5">
+                                        {assignees.map((a) => (
+                                            <AssigneeChip
+                                                key={a.id}
+                                                assignment={a}
+                                                canRemove={canUnassign(a)}
+                                                removing={removingAssignment === a.id}
+                                                onRemove={() => handleUnassign(a)}
+                                            />
+                                        ))}
+                                    </ul>
+                                )}
+
+                                {isOwner ? (
+                                    <div className="mt-2.5 flex flex-col gap-1.5">
+                                        <label className="sr-only" htmlFor="assign-member">
+                                            Assign a member
+                                        </label>
+                                        <select
+                                            id="assign-member"
+                                            className="input"
+                                            value={selectedMember}
+                                            disabled={assignableMembers.length === 0}
+                                            onChange={(e) => setSelectedMember(e.target.value)}
+                                        >
+                                            <option value="">
+                                                {assignableMembers.length === 0
+                                                    ? "Everyone is assigned"
+                                                    : "Add someone…"}
+                                            </option>
+                                            {assignableMembers.map((m) => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.username}
+                                                    {user && m.username === user.username ? " (you)" : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {selectedMember !== "" && (
+                                            <button
+                                                className="btn btn-sm btn-primary"
+                                                disabled={assigning}
+                                                onClick={() => handleAssign(Number(selectedMember))}
+                                            >
+                                                {assigning ? "Assigning…" : "Assign"}
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    canAssignSelf && self && (
+                                        <button
+                                            className="btn btn-sm btn-secondary mt-2.5 w-full"
+                                            disabled={assigning}
+                                            onClick={() => handleAssign(self.id)}
+                                        >
+                                            {assigning ? "Assigning…" : "Assign myself"}
+                                        </button>
+                                    )
+                                )}
+
+                                {assignError && (
+                                    <p className="mt-2 rounded-control bg-danger-soft px-2 py-1.5 text-meta text-danger" role="alert">
+                                        {assignError}
+                                    </p>
+                                )}
+                            </section>
+
+                            <dl className="mt-3 border-t border-line pt-1">
                                 <MetaRow label="Column">{column?.name ?? "Unknown"}</MetaRow>
                                 <MetaRow label="Priority">
                                     <PriorityTag priority={task.priority} />
@@ -418,7 +564,7 @@ function TaskDetailPage() {
                                         {c.last_edited_date !== c.created_date && (
                                             <span className="text-meta text-ink-faint">edited</span>
                                         )}
-                                        {editingComment !== c.id && (
+                                        {editingComment !== c.id && canModifyComment(c) && (
                                             <div className="ml-auto flex items-center gap-0.5 opacity-0 transition duration-150 group-hover/comment:opacity-100 focus-within:opacity-100">
                                                 <button
                                                     className="btn btn-sm btn-ghost"

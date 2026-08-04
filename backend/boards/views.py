@@ -3,13 +3,15 @@ from django.contrib.auth import get_user_model
 from boards.serializers import BoardSerializer, TaskSerializer, AssignedTaskSerializer, UserBoardSerializer, ColumnSerializer, CreateUserSerializer, BoardDetailSerializer, CommentSerializer, TaskDetailSerializer
 from rest_framework import viewsets, generics
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from . models import Board, Task, Column, UserBoard, AssignedTask, Comment
 from rest_framework.permissions import AllowAny
 from rest_framework.exceptions import PermissionDenied
-from .permissions import BoardMemberPermission, TaskAndColumnBoardMemberPermission, CommentPermission
+from .permissions import BoardMemberPermission, TaskAndColumnBoardMemberPermission, CommentPermission, AssignmentPermission
 from rest_framework.decorators import action
 from rest_framework import status
 from .ai import draft_ticket
+
 
 class UserBoardViewSet(viewsets.ModelViewSet):
     serializer_class = UserBoardSerializer
@@ -18,6 +20,39 @@ class UserBoardViewSet(viewsets.ModelViewSet):
 class AssignedTaskViewSet(viewsets.ModelViewSet):
     serializer_class = AssignedTaskSerializer
     queryset = AssignedTask.objects.all()
+    permission_classes = [AssignmentPermission]
+
+    def get_queryset(self):
+        qs = AssignedTask.objects.filter(
+            task__board__userboard__user=self.request.user
+        )
+        task_id = self.request.query_params.get("task")
+        if task_id is not None:
+            qs = qs.filter(task_id=task_id)
+        return qs
+
+    def perform_create(self, serializer):
+        task = serializer.validated_data["task"]
+        target_user = serializer.validated_data["user"]
+        requester = self.request.user
+
+        # requester's membership row on this board (none if not a member)
+        requester_membership = UserBoard.objects.filter(
+            board=task.board, user=requester
+        ).first()
+        if requester_membership is None:
+            raise PermissionDenied("You are not a member of this board.")
+        # only owner can asign others. anyone can asign themselves
+        if target_user != requester and requester_membership.role != "owner":
+            raise PermissionDenied("Only the board owner can assign other members.")
+
+        target_is_member = UserBoard.objects.filter(
+            board=task.board, user=target_user
+        ).exists()
+        if not target_is_member:
+            raise PermissionDenied("That user is not a member of this board.")
+
+        serializer.save()
 
 class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
@@ -84,6 +119,10 @@ class CreateUserView(generics.CreateAPIView): # register view
     serializer_class = CreateUserSerializer
     queryset = get_user_model().objects.all()
     permission_classes = [AllowAny]
+
+class MeView(APIView):
+    def get(self, request):
+        return Response({"id": request.user.id, "username": request.user.username})
 
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer

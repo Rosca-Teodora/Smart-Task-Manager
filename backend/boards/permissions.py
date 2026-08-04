@@ -12,9 +12,28 @@ class TaskAndColumnBoardMemberPermission(permissions.BasePermission):
 
 class CommentPermission(permissions.BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated) # setting this class on the viewset overrides the global IsAuthenticated default
+        return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True          # read: queryset scoping already gates to members
-        return obj.user == request.user   # write: author only
+        if obj.user == request.user:
+            return True          # write: the author
+        return UserBoard.objects.filter(
+            board=obj.task.board, user=request.user, role="owner"
+        ).exists()
+
+class AssignmentPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        # obj is the AssignedTask being deleted
+        if obj.user == request.user:
+            return True  # unassign yourself
+        membership = UserBoard.objects.filter(
+            board=obj.task.board, user=request.user
+        ).first()
+        return membership is not None and membership.role == "owner"
