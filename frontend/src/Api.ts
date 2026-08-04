@@ -16,7 +16,19 @@ export async function login(username: string, password: string): Promise<void> {
     const data = await res.json();
     localStorage.setItem("access", data.access);
     localStorage.setItem("refresh", data.refresh);
+}
+
+export async function register(username: string, password: string): Promise<Response> {
+    const res = await fetch(`${BASE_URL}/register/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password}),
+    });
+    if (!res.ok) {
+        throw new Error("Could not register account");
     }
+    return res;
+}
 
 
 export function logout(): void {
@@ -175,10 +187,16 @@ export type Column = {
     tasks: Task[];
 };
 
+export type BoardMember = {
+    username: string;
+    role: string;
+}
+
 export type BoardDetail = {
     id: number;
     name: string;
     key: string;
+    members: BoardMember[];
     columns: Column[];
 };
 

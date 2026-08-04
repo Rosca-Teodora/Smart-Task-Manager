@@ -35,17 +35,25 @@ class UserBoardSerializer(serializers.ModelSerializer):
         model = UserBoard
         fields = '__all__'
 
+class BoardMemberSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(read_only=True, source="user.username")
+
+    class Meta:
+        model = UserBoard
+        fields = ["username", "role"]
+
 class BoardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board 
         fields = '__all__'
 
 class BoardDetailSerializer(serializers.ModelSerializer):
+    members = BoardMemberSerializer(many=True, read_only=True, source="userboard_set")
     columns = ColumnSerializer(many=True, read_only=True, source="column_set")
-
+    
     class Meta:
         model = Board
-        fields = ["id", "name", "key", "created_date", "columns"]
+        fields = ["id", "name", "key", "created_date", "members", "columns"]
 
 class CreateUserSerializer(serializers.ModelSerializer):
     class Meta: 

@@ -13,6 +13,7 @@ import {
 import DraftTask from "./DraftTask";
 import CreateTaskForm from "./CreateTaskForm";
 import PriorityTag from "../components/PriorityTag";
+import MemberAvatars from "../components/MemberAvatars";
 
 
 function CreateColumnForm({ boardId, nextPosition, onCreated }: {
@@ -217,7 +218,7 @@ function BoardDetailPage() {
 
     if (loading) {
         return (
-            <main className="mx-auto max-w-[1400px] px-8 py-6">
+            <main className="mx-auto max-w-[1240px] px-10 py-8">
                 <div className="h-8 w-64 animate-pulse rounded-card bg-subtle" />
                 <div className="mt-6 flex gap-4">
                     <div className="h-64 w-column animate-pulse rounded-panel bg-subtle" />
@@ -229,7 +230,7 @@ function BoardDetailPage() {
     }
     if (error) {
         return (
-            <main className="mx-auto max-w-[1400px] px-8 py-6">
+            <main className="mx-auto max-w-[1240px] px-10 py-8">
                 <p className="rounded-panel bg-danger-soft px-4 py-3 text-body text-danger" role="alert">{error}</p>
             </main>
         );
@@ -238,7 +239,7 @@ function BoardDetailPage() {
 
     return (
         <main className="min-h-dvh">
-        <header className="mx-auto max-w-[1400px] px-8 pt-6 pb-5">
+        <header className="mx-auto max-w-[1240px] px-10 pt-8 pb-6">
         <Link
             to="/boards"
             className="inline-flex items-center gap-1.5 rounded-control text-label text-ink-muted transition duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -306,6 +307,12 @@ function BoardDetailPage() {
             </div>
         )}
         </div>
+        {!editingBoard && (
+            <div className="mt-3.5">
+                <h2 className="sr-only">Board members</h2>
+                <MemberAvatars members={board.members} />
+            </div>
+        )}
         {actionError && <p className="field-error mt-2">{actionError}</p>}
 
         {showAddTask && (
@@ -331,8 +338,7 @@ function BoardDetailPage() {
         </header>
 
         <div className="overflow-x-auto pb-8">
-        <div className="mx-auto max-w-[1400px] px-8">
-        <div className="mx-auto flex w-max items-start gap-4">
+        <div className="mx-auto flex min-w-max max-w-[1240px] items-start gap-4 px-10">
             {board.columns.map((column) => (
             <ColumnCard
                 key={column.id}
@@ -346,7 +352,6 @@ function BoardDetailPage() {
                     nextPosition={board.columns.length + 1}
                     onCreated={refetchBoard}
             />
-        </div>
         </div>
         </div>
         </main>

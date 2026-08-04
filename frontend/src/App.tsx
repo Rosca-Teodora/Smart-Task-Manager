@@ -5,6 +5,7 @@ import TaskDetail from "./views/TaskDetail";
 import Login from "./views/Login";
 import NavBar from "./components/NavBar";
 import ProtectedRoute from "./ProtectedRoute";
+import Register from "./views/Register";
 
 function Layout() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route index element={<Navigate to="/login" replace />} />
 
         <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
         <Route path="boards" element={<ProtectedRoute><BoardList /></ProtectedRoute>} />
         <Route path="boards/:boardId" element={<ProtectedRoute><BoardDetails /></ProtectedRoute>} />
         <Route path="boards/:boardId/tasks/:taskId" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />

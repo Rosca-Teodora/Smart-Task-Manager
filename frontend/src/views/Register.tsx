@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { register } from "../Api";
 
-function Login() {
+function Register() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -19,13 +20,20 @@ function Login() {
         setError(null);
         setSubmitting(true);
         try {
+            await register(username.trim(), password);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Register failed");
+            setSubmitting(false);
+            return;
+        } 
+        try {
             await login(username.trim(), password);
             navigate("/boards");
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Login failed");
-        } finally {
-            setSubmitting(false);
         }
+        catch {
+            navigate("/login", {state: { message: "Account created succesfuly"}});
+        }
+
     }
 
     return (
@@ -34,13 +42,10 @@ function Login() {
                 <h1 className="text-title font-semibold tracking-[-0.03em] text-balance text-ink lg:text-display lg:leading-[1.05]">
                     Every task in one place.
                 </h1>
-                <p className="mt-4 max-w-[46ch] text-body leading-relaxed text-ink-muted">
-                    Sign in to pick up where you left off.
-                </p>
             </section>
 
             <section className="w-full rounded-panel border border-line bg-surface p-6 shadow-[0_20px_50px_-30px_rgba(28,24,21,0.45)]">
-                <h2 className="text-label font-semibold tracking-[-0.01em] text-ink">Sign in</h2>
+                <h2 className="text-label font-semibold tracking-[-0.01em] text-ink">Create an account</h2>
 
                 <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4" noValidate>
                     <label className="flex flex-col gap-1">
@@ -81,20 +86,12 @@ function Login() {
                         type="submit"
                         disabled={submitting || !username.trim() || !password}
                     >
-                        {submitting ? "Signing in…" : "Sign in"}
+                        {submitting ? "Signing up…" : "Sign up"}
                     </button>
-                    <p>
-                        Don't have an account? 
-                        <div>
-                            <Link to ="/register/" replace = {true}>
-                                Sign Up
-                            </Link>
-                        </div>
-                    </p>
                 </form>
             </section>
         </main>
     );
 }
 
-export default Login;
+export default Register;
