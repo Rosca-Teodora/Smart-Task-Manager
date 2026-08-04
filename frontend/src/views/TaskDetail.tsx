@@ -5,9 +5,33 @@ import {
     getBoard,
     updateTask,
     deleteTask,
+    type Priority,
     type TaskDetail,
     type Column,
 } from "../Api";
+import PriorityTag from "../components/PriorityTag";
+import { PRIORITY_OPTIONS } from "../components/priority";
+
+const DATE_FORMAT: Intl.DateTimeFormatOptions = {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+};
+
+function formatDate(value: string) {
+    return new Date(value).toLocaleString(undefined, DATE_FORMAT);
+}
+
+function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div className="flex items-baseline justify-between gap-4 py-2">
+            <dt className="text-meta font-medium text-ink-muted">{label}</dt>
+            <dd className="text-right text-label text-ink">{children}</dd>
+        </div>
+    );
+}
 
 function TaskDetailPage() {
     const { boardId, taskId } = useParams();
@@ -21,6 +45,9 @@ function TaskDetailPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [statusId, setStatusId] = useState<number | null>(null);
+    const [priority, setPriority] = useState<Priority>("MED");
+    const [saving, setSaving] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const [actionError, setActionError] = useState<string | null>(null);
 
     function refetchTask() {
@@ -47,9 +74,11 @@ function TaskDetailPage() {
     function startEdit() {
         if (!task) return;
         setActionError(null);
+        setConfirmDelete(false);
         setTitle(task.title);
         setDescription(task.description);
         setStatusId(task.status);
+        setPriority(task.priority);
         setEditing(true);
     }
 
@@ -60,115 +89,231 @@ function TaskDetailPage() {
             setActionError("Pick a column for the task");
             return;
         }
+        setSaving(true);
         try {
-            await updateTask(task.id, { title, description, status: statusId });
+            await updateTask(task.id, { title: title.trim(), description, status: statusId, priority });
             setEditing(false);
             refetchTask();
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Save failed");
+        } finally {
+            setSaving(false);
         }
     }
 
     async function handleDelete() {
         if (!task) return;
-        if (!window.confirm(`Delete task "${task.title}"?`)) return;
         setActionError(null);
         try {
             await deleteTask(task.id);
             navigate(`/boards/${boardId}`);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : "Delete failed");
+            setConfirmDelete(false);
         }
     }
 
-    if (loading) return <main className="p-8">Loading…</main>;
-    if (error) return <main className="p-8 text-red-600">Error: {error}</main>;
+    const backLink = (
+        <Link
+            to={`/boards/${boardId}`}
+            className="inline-flex items-center gap-1.5 rounded-control text-label text-ink-muted transition duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+            <span aria-hidden="true">←</span> Back to board
+        </Link>
+    );
+
+    if (loading) {
+        return (
+            <main className="mx-auto max-w-3xl px-6 py-8 sm:px-8">
+                {backLink}
+                <div className="mt-6 h-8 w-2/3 animate-pulse rounded-card bg-subtle" />
+                <div className="mt-5 h-36 animate-pulse rounded-panel bg-subtle" />
+                <div className="mt-4 h-28 animate-pulse rounded-panel bg-subtle" />
+            </main>
+        );
+    }
+
+    if (error) {
+        return (
+            <main className="mx-auto max-w-3xl px-6 py-8 sm:px-8">
+                {backLink}
+                <p className="mt-6 rounded-panel bg-danger-soft px-4 py-3 text-body text-danger" role="alert">
+                    {error}
+                </p>
+            </main>
+        );
+    }
+
     if (!task) return null;
 
+    const column = columns.find((c) => c.id === task.status);
+
     return (
-        <main className="p-8 space-y-6">
-            <Link to={`/boards/${boardId}`} className="text-blue-600 hover:underline">
-                ← Back to board
-            </Link>
+        <main className="mx-auto min-h-[calc(100dvh-3.5rem)] max-w-3xl px-6 py-8 sm:px-8">
+            {backLink}
 
             {editing ? (
-                <div className="space-y-2 max-w-lg">
-                    <input
-                        className="w-full rounded border p-2 font-medium"
-                        placeholder="Task title"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                    />
-                    <textarea
-                        className="w-full rounded border p-2 text-sm"
-                        rows={4}
-                        placeholder="Description"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                    />
-                    <select
-                        className="w-full rounded border p-2 text-sm"
-                        value={statusId ?? ""}
-                        onChange={(e) => setStatusId(Number(e.target.value))}
-                    >
-                        {columns.map((column) => (
-                            <option key={column.id} value={column.id}>
-                                {column.name}
-                            </option>
-                        ))}
-                    </select>
-                    <div className="flex gap-2">
-                        <button
-                            className="rounded bg-green-600 text-white px-4 py-2 disabled:opacity-50"
-                            onClick={handleSave}
-                            disabled={!title.trim()}
-                        >
-                            Save
-                        </button>
-                        <button
-                            className="rounded border px-4 py-2"
-                            onClick={() => setEditing(false)}
-                        >
-                            Cancel
-                        </button>
+                <section className="mt-5 rounded-panel border border-line bg-surface p-6 shadow-[0_20px_50px_-30px_rgba(28,24,21,0.45)]">
+                    <h1 className="text-label font-semibold tracking-[-0.01em] text-ink">Edit task</h1>
+
+                    <div className="mt-5 flex flex-col gap-4">
+                        <label className="flex flex-col gap-1">
+                            <span className="text-meta font-medium text-ink-muted">Title</span>
+                            <input
+                                className="input text-body font-medium"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                            />
+                        </label>
+
+                        <label className="flex flex-col gap-1">
+                            <span className="text-meta font-medium text-ink-muted">Description</span>
+                            <textarea
+                                className="input resize-y leading-relaxed"
+                                rows={6}
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                            />
+                        </label>
+
+                        <div className="flex flex-wrap gap-3">
+                            <label className="flex min-w-40 flex-1 flex-col gap-1">
+                                <span className="text-meta font-medium text-ink-muted">Column</span>
+                                <select
+                                    className="input"
+                                    value={statusId ?? ""}
+                                    onChange={(e) => setStatusId(Number(e.target.value))}
+                                >
+                                    {columns.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="flex min-w-40 flex-1 flex-col gap-1">
+                                <span className="text-meta font-medium text-ink-muted">Priority</span>
+                                <select
+                                    className="input"
+                                    value={priority}
+                                    onChange={(e) => setPriority(e.target.value as Priority)}
+                                >
+                                    {PRIORITY_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+
+                        {actionError && (
+                            <p className="rounded-control bg-danger-soft px-2.5 py-2 text-meta text-danger" role="alert">
+                                {actionError}
+                            </p>
+                        )}
+
+                        <div className="mt-1 flex gap-2">
+                            <button
+                                className="btn btn-md btn-primary"
+                                onClick={handleSave}
+                                disabled={saving || !title.trim()}
+                            >
+                                {saving ? "Saving…" : "Save changes"}
+                            </button>
+                            <button className="btn btn-md btn-secondary" onClick={() => setEditing(false)}>
+                                Cancel
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </section>
             ) : (
                 <>
-                    <div>
-                        <div className="text-xs text-gray-500">{task.key}</div>
-                        <h1 className="text-2xl font-bold">{task.title}</h1>
-                    </div>
+                    <header className="mt-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2.5">
+                                <span className="rounded-control bg-accent-soft px-1.5 py-0.5 font-mono text-meta font-medium tracking-wide tabular-nums text-accent">
+                                    {task.key}
+                                </span>
+                                <PriorityTag priority={task.priority} />
+                            </div>
+                            <h1 className="mt-2.5 text-title font-semibold tracking-[-0.02em] text-balance text-ink">
+                                {task.title}
+                            </h1>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                            <button className="btn btn-md btn-secondary" onClick={startEdit}>
+                                Edit task
+                            </button>
+                            <button
+                                className="btn btn-md btn-danger"
+                                onClick={() => setConfirmDelete(true)}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </header>
 
-                    <p className="whitespace-pre-wrap">{task.description}</p>
+                    {confirmDelete && (
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-panel bg-danger-soft px-4 py-3">
+                            <p className="text-label text-danger">
+                                Delete {task.key} permanently? This cannot be undone.
+                            </p>
+                            <div className="flex gap-2">
+                                <button className="btn btn-sm btn-primary" onClick={handleDelete}>
+                                    Delete task
+                                </button>
+                                <button className="btn btn-sm btn-secondary" onClick={() => setConfirmDelete(false)}>
+                                    Keep it
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
-                    <div className="text-xs text-gray-500 space-y-1">
-                        <div>Created: {new Date(task.created_date).toLocaleString()}</div>
-                        <div>Last edited: {new Date(task.last_edited_date).toLocaleString()}</div>
-                    </div>
+                    {actionError && (
+                        <p className="mt-4 rounded-control bg-danger-soft px-2.5 py-2 text-meta text-danger" role="alert">
+                            {actionError}
+                        </p>
+                    )}
 
-                    <div className="flex gap-2">
-                        <button
-                            className="rounded bg-blue-600 text-white px-4 py-2"
-                            onClick={startEdit}
-                        >
-                            Edit task
-                        </button>
-                        <button
-                            className="rounded bg-red-600 text-white px-4 py-2"
-                            onClick={handleDelete}
-                        >
-                            Delete task
-                        </button>
+                    <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-start">
+                        <section className="rounded-panel border border-line bg-surface p-5">
+                            <h2 className="text-meta font-medium text-ink-muted">Description</h2>
+                            {task.description.trim() ? (
+                                <p className="mt-2.5 whitespace-pre-wrap text-body leading-relaxed text-pretty text-ink">
+                                    {task.description}
+                                </p>
+                            ) : (
+                                <p className="mt-2.5 text-body text-ink-faint">
+                                    No description yet. Use{" "}
+                                    <button
+                                        className="rounded-control text-accent underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                                        onClick={startEdit}
+                                    >
+                                        Edit task
+                                    </button>{" "}
+                                    to add one.
+                                </p>
+                            )}
+                        </section>
+
+                        <aside className="rounded-panel border border-line bg-subtle px-4 py-2">
+                            <dl>
+                                <MetaRow label="Column">{column?.name ?? "Unknown"}</MetaRow>
+                                <MetaRow label="Priority">
+                                    <PriorityTag priority={task.priority} />
+                                </MetaRow>
+                                <MetaRow label="Created">
+                                    <time dateTime={task.created_date} className="tabular-nums">
+                                        {formatDate(task.created_date)}
+                                    </time>
+                                </MetaRow>
+                                <MetaRow label="Last edited">
+                                    <time dateTime={task.last_edited_date} className="tabular-nums">
+                                        {formatDate(task.last_edited_date)}
+                                    </time>
+                                </MetaRow>
+                            </dl>
+                        </aside>
                     </div>
                 </>
             )}
-
-            {actionError && <p className="text-red-600 text-sm">{actionError}</p>}
-
-            {/* <div className="rounded border-2 border-dashed p-4 text-sm text-gray-500">
-                comments to add
-            </div> */}
         </main>
     );
 }

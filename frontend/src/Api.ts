@@ -238,6 +238,6 @@ export async function updateBoard(id: number, data: { name?: string; key?: strin
 export async function updateColumn(id: number, data: { name?: string }): Promise<void> {
   await mutate(`/columns/${id}/`, "PATCH", data);
 }
-export async function updateTask(id: number, data: { title?: string; description?: string; status?: number }): Promise<void> {
+export async function updateTask(id: number, data: { title?: string; description?: string; status?: number; priority?: Priority }): Promise<void> {
   await mutate(`/tasks/${id}/`, "PATCH", data);
 }

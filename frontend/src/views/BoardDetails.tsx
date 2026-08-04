@@ -215,8 +215,25 @@ function BoardDetailPage() {
         }
     }
 
-    if (loading) return <main className="min-h-dvh px-8 py-6 text-body text-ink-muted">Loading…</main>;
-    if (error) return <main className="min-h-dvh px-8 py-6 text-body text-danger">{error}</main>;
+    if (loading) {
+        return (
+            <main className="mx-auto max-w-[1400px] px-8 py-6">
+                <div className="h-8 w-64 animate-pulse rounded-card bg-subtle" />
+                <div className="mt-6 flex gap-4">
+                    <div className="h-64 w-column animate-pulse rounded-panel bg-subtle" />
+                    <div className="h-64 w-column animate-pulse rounded-panel bg-subtle" />
+                    <div className="h-64 w-column animate-pulse rounded-panel bg-subtle" />
+                </div>
+            </main>
+        );
+    }
+    if (error) {
+        return (
+            <main className="mx-auto max-w-[1400px] px-8 py-6">
+                <p className="rounded-panel bg-danger-soft px-4 py-3 text-body text-danger" role="alert">{error}</p>
+            </main>
+        );
+    }
     if (!board) return null;
 
     return (
@@ -314,7 +331,8 @@ function BoardDetailPage() {
         </header>
 
         <div className="overflow-x-auto pb-8">
-        <div className="mx-auto flex min-w-max max-w-[1400px] items-start gap-4 px-8">
+        <div className="mx-auto max-w-[1400px] px-8">
+        <div className="mx-auto flex w-max items-start gap-4">
             {board.columns.map((column) => (
             <ColumnCard
                 key={column.id}
@@ -328,6 +346,7 @@ function BoardDetailPage() {
                     nextPosition={board.columns.length + 1}
                     onCreated={refetchBoard}
             />
+        </div>
         </div>
         </div>
         </main>
