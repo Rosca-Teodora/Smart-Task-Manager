@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getBoards, type Board } from "../Api";
-import { useAuth } from "../AuthContext";
 import { useNavigate } from "react-router-dom";
 import { createBoard } from "../Api";
 
@@ -67,20 +66,6 @@ function CreateBoardForm({ onCreated, onCancel }: { onCreated: () => void; onCan
 
 
 
-function LogoutButton() {
-    const { logout } = useAuth();
-    const navigate = useNavigate();
-    return (
-        <button
-        onClick={() => { logout(); navigate("/login"); }}
-        className="btn btn-sm btn-ghost"
-        >
-        Log out
-        </button>
-    );
-}
-
-
 function BoardList() {
     const [boards, setBoards] = useState<Board[]>([]);
     const [loading, setLoading] = useState(true);
@@ -109,8 +94,6 @@ function BoardList() {
         <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <h1 className="text-title font-semibold tracking-[-0.02em] text-ink">Your boards</h1>
             <div className="flex items-center gap-1">
-                <LogoutButton />
-                <span aria-hidden="true" className="mx-2 h-5 w-px bg-line" />
                 <button
                     className="btn btn-md btn-primary"
                     aria-expanded={showCreate}
