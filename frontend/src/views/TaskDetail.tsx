@@ -58,7 +58,8 @@ function TaskDetailPage() {
     const [commentText, setCommentText] = useState("");
     const [postingComment, setPostingComment] = useState(false);
     const [commentError, setCommentError] = useState<string | null>(null);
-    const [confirmDeleteComment, setConfirmDeleteComment] = useState(false);
+    const [confirmDeleteComment, setConfirmDeleteComment] = useState<number | null>(null);
+    const [deletingComment, setDeletingComment] = useState<number | null>(null);
 
     function refetchTask() {
         if (!taskId) return;
@@ -128,11 +129,12 @@ function TaskDetailPage() {
         }
     }
 
-    async function handleAddComment() {
-        if (!task) return;
+    async function handleAddComment(e: React.FormEvent) {
+        e.preventDefault();
+        if (!task || !commentText.trim()) return;
         setCommentError(null);
         setPostingComment(true);
-         
+
         try {
             await createComment({task: task.id, text: commentText.trim()})
             const fresh = await getComments(task.id);
@@ -145,17 +147,19 @@ function TaskDetailPage() {
         }
     }
 
-    // async function handleDeleteComment() {
-    //     if (!task) return;
-    //     setActionError(null);
-    //     try {
-    //         await deleteComment(task.id);
-    //         navigate(`/boards/${boardId}`);
-    //     } catch (err) {
-    //         setActionError(err instanceof Error ? err.message : "Delete failed");
-    //         setConfirmDelete(false);
-    //     }
-    // }
+    async function handleDeleteComment(commentId: number) {
+        setCommentError(null);
+        setDeletingComment(commentId);
+        try {
+            await deleteComment(commentId);
+            setComments((current) => current.filter((c) => c.id !== commentId));
+            setConfirmDeleteComment(null);
+        } catch (err) {
+            setCommentError(err instanceof Error ? err.message : "Could not delete comment");
+        } finally {
+            setDeletingComment(null);
+        }
+    }
 
     const backLink = (
         <Link
@@ -366,8 +370,8 @@ function TaskDetailPage() {
                             <p className="text-body text-ink-faint">No comments yet.</p>
                         ) : (
                             comments.map((c) => (
-                                <div key={c.id} className="rounded-card bg-subtle px-4 py-3">
-                                    <div className="flex items-baseline justify-between gap-3">
+                                <div key={c.id} className="group/comment rounded-card bg-subtle px-4 py-3">
+                                    <div className="flex items-baseline gap-3">
                                         <span className="text-label font-medium text-ink">{c.author}</span>
                                         <time
                                             dateTime={c.created_date}
@@ -376,8 +380,9 @@ function TaskDetailPage() {
                                             {formatDate(c.created_date)}
                                         </time>
                                         <button
-                                            className="btn btn-md btn-danger"
-                                            onClick={() => setConfirmDeleteComment(true)}
+                                            className="btn btn-sm btn-danger ml-auto opacity-0 transition duration-150 group-hover/comment:opacity-100 focus-visible:opacity-100"
+                                            aria-label={`Delete comment by ${c.author}`}
+                                            onClick={() => setConfirmDeleteComment(c.id)}
                                         >
                                             Delete
                                         </button>
@@ -385,6 +390,26 @@ function TaskDetailPage() {
                                     <p className="mt-1.5 whitespace-pre-wrap text-body leading-relaxed text-pretty text-ink">
                                         {c.text}
                                     </p>
+                                    {confirmDeleteComment === c.id && (
+                                        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-3 rounded-control bg-danger-soft px-3 py-2">
+                                            <p className="text-meta text-danger">Delete this comment?</p>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    className="btn btn-sm btn-primary"
+                                                    disabled={deletingComment === c.id}
+                                                    onClick={() => handleDeleteComment(c.id)}
+                                                >
+                                                    {deletingComment === c.id ? "Deleting…" : "Delete"}
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-secondary"
+                                                    onClick={() => setConfirmDeleteComment(null)}
+                                                >
+                                                    Keep it
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))
                         )}
